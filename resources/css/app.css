@@ -1,0 +1,13 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body { background-color: #f4f6f9; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+.header-blue { background-color: #0d6efd; color: white; font-weight: bold; padding: 12px 20px; }
+.header-green { background-color: #198754; color: white; font-weight: bold; padding: 12px 20px; }
+.table-dark-header th { background-color: #212529 !important; color: white !important; }
+.btn-yellow { background-color: #ffc107; color: #000; font-weight: bold; border: none; }
+.btn-yellow:hover { background-color: #e0a800; }
+.btn-red { background-color: #dc3545; color: white; font-weight: bold; border: none; }
+.btn-red:hover { background-color: #c82333; }
+.nav-link.active { border-bottom: 2px solid #0d6efd; color: #0d6efd !important; }
