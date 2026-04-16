@@ -61,17 +61,22 @@ class CandidateController extends Controller
             $hasVoted = Vote::where('user_id', $user->id)->exists();
             $votedCandidates = [];
             $groupedCandidates = [];
+            $tally = collect(); // Initialize empty tally
 
             if ($hasVoted) {
-                // If they already voted, fetch who they voted for to display the receipt
+                // If they already voted, fetch their receipt
                 $voteIds = Vote::where('user_id', $user->id)->pluck('candidate_id');
                 $votedCandidates = Candidate::whereIn('id', $voteIds)->with('position')->get();
+                
+                // NEW: Also fetch the live tally so they can watch the results!
+                $allCandidates = Candidate::with('position')->withCount('votes')->get();
+                $tally = $allCandidates->groupBy('position.position_name');
             } else {
                 // If they haven't voted, fetch the ballot
                 $groupedCandidates = Candidate::with('position')->get()->groupBy('position.position_name');
             }
 
-            return view('candidates.index', compact('groupedCandidates', 'hasVoted', 'votedCandidates', 'electionStatus'));
+            return view('candidates.index', compact('groupedCandidates', 'hasVoted', 'votedCandidates', 'electionStatus', 'tally'));
         }
     }
 
@@ -159,5 +164,26 @@ class CandidateController extends Controller
     public function destroy($id) {
         Candidate::findOrFail($id)->delete();
         return redirect()->route('candidates.index')->with('success', 'Candidate removed from ballot.');
+    }
+
+    /**
+     * Display the Voter's Election History
+     */
+    public function history()
+    {
+        $user = auth()->user();
+
+        // Fetch all votes cast by this specific user, including the candidate and position details
+        $votes = \App\Models\Vote::where('user_id', $user->id)
+                    ->with('candidate.position')
+                    ->orderBy('created_at', 'desc')
+                    ->get();
+
+        // Group the votes by the month and year they were cast (Simulating different election periods)
+        $electionHistory = $votes->groupBy(function($vote) {
+            return \Carbon\Carbon::parse($vote->created_at)->format('F Y'); // e.g., "April 2026"
+        });
+
+        return view('candidates.history', compact('electionHistory'));
     }
 }

@@ -7,4 +7,16 @@ use Illuminate\Database\Eloquent\Model;
 class Vote extends Model
 {
     protected $fillable = ['user_id', 'candidate_id'];
+
+    // Tell Laravel that every vote belongs to a specific candidate
+    public function candidate()
+    {
+        return $this->belongsTo(Candidate::class);
+    }
+
+    // Tell Laravel that every vote belongs to a specific user/student
+    public function user()
+    {
+        return $this->belongsTo(User::class);
+    }
 }
