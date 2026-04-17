@@ -34,11 +34,15 @@
         </div>
         <div style="background: white; border: 1px solid #cbd5e1; padding: 10px 20px; border-radius: 50px; font-weight: 800; font-size: 13px; color: var(--text-dark); box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
             ELECTION STATUS: 
-            <span class="{{ $electionStatus === 'closed' ? 'text-danger' : 'text-success' }} ms-1">
+            <span class="{{ $electionStatus === 'closed' || $electionStatus === 'certified' || $electionStatus === 'published' ? 'text-danger' : 'text-success' }} ms-1">
                 {{ strtoupper($electionStatus) }}
             </span>
         </div>
     </div>
+
+    @if(session('success'))
+        <div class="alert alert-success fw-bold reveal"><i class="bi bi-check-circle-fill me-2"></i>{{ session('success') }}</div>
+    @endif
 
     <div class="row">
         <div class="col-lg-5 col-md-12 reveal">
@@ -70,7 +74,7 @@
             <h4 class="dash-title mb-3 fs-5"><i class="bi bi-file-earmark-lock-fill me-2 text-muted"></i> Certified Election Results</h4>
             
             <div class="dash-card p-0" style="height: 650px; display: flex; flex-direction: column;">
-                @if($electionStatus !== 'closed')
+                @if($electionStatus === 'pending' || $electionStatus === 'active')
                     <div class="text-center" style="margin: auto; padding: 40px;">
                         <div style="width: 80px; height: 80px; background: #f1f5f9; color: #94a3b8; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 20px;"><i class="bi bi-lock-fill"></i></div>
                         <h3 class="dash-title fs-4">Results Encrypted & Sealed</h3>
@@ -84,6 +88,23 @@
                         <span style="font-weight: 700; font-family: 'DM Sans'; letter-spacing: 0.05em;"><i class="bi bi-patch-check-fill me-2 text-warning"></i> OFFICIAL TALLY</span>
                         <span style="font-family: 'DM Sans'; font-size: 12px; background: rgba(255,255,255,0.2); padding: 4px 10px; border-radius: 6px;">Total Ballots: {{ $totalBallots }}</span>
                     </div>
+
+                    @if($electionStatus === 'closed')
+                        <div class="p-4 text-center border-bottom" style="background: #fdf2f5;">
+                            <h5 class="dash-title fs-5 mb-2 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> Action Required</h5>
+                            <p class="text-muted fs-6 mb-3">Review the final tallies below. Once verified, send the certified data to Administration for publishing.</p>
+                            <form action="{{ route('election.certify') }}" method="POST">
+                                @csrf
+                                <button type="submit" class="btn btn-danger fw-bold px-4 py-2" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);">
+                                    Certify & Send Results to Admin <i class="bi bi-send-fill ms-2"></i>
+                                </button>
+                            </form>
+                        </div>
+                    @elseif($electionStatus === 'certified' || $electionStatus === 'published')
+                        <div class="p-3 text-center border-bottom bg-light text-success fw-bold">
+                            <i class="bi bi-check-circle-fill me-2"></i> Results Certified and Sent. Awaiting Admin Publication.
+                        </div>
+                    @endif
                     
                     <div class="p-4" style="overflow-y: auto; flex-grow: 1; background: #ffffff;">
                         @foreach($finalTally as $positionName => $positionCandidates)
@@ -97,7 +118,7 @@
                                     @foreach($positionCandidates->sortByDesc('votes_count') as $index => $candidate)
                                         @php
                                             // Calculate percentage for the progress bar
-                                            $maxVotes = $maxVotesPerPosition[$positionName];
+                                            $maxVotes = isset($maxVotesPerPosition[$positionName]) ? $maxVotesPerPosition[$positionName] : 1;
                                             $percentage = ($candidate->votes_count / $maxVotes) * 100;
                                         @endphp
                                         
@@ -130,7 +151,7 @@
                     </div>
                     
                     <div class="p-3 border-top text-center" style="background: #f8fafc; font-size: 12px; color: #64748b;">
-                        <i class="bi bi-shield-lock-fill me-1"></i> Data mathematically verified and cryptographically sealed by UM E-Vote System.
+                        <i class="bi bi-shield-check me-1"></i> Data mathematically verified and cryptographically sealed by UM E-Vote System.
                     </div>
                 @endif
             </div>

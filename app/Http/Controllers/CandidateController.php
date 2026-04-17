@@ -19,49 +19,55 @@ class CandidateController extends Controller
     {
         $user = auth()->user();
         
-        // Ensure an election record exists
         $election = Election::first();
         if (!$election) {
             $election = Election::create(['status' => 'pending']);
         }
         $electionStatus = $election->status;
 
+        // NEW: Calculate the final processed data for EVERYONE if the election is over
+        $finalTally = collect();
+        $totalBallots = 0;
+        $maxVotesPerPosition = [];
+
+        if (in_array($electionStatus, ['certified', 'published'])) {
+            $finalTally = Candidate::with('position')->withCount('votes')->get()->groupBy('position.position_name');
+            $totalBallots = Vote::distinct('user_id')->count('user_id');
+
+            foreach ($finalTally as $position => $candidates) {
+                $maxVotes = $candidates->max('votes_count');
+                $maxVotesPerPosition[$position] = $maxVotes > 0 ? $maxVotes : 1; 
+            }
+        }
+
         // ---------------------------------------------------------
         // ADMIN DASHBOARD (Role 1)
         // ---------------------------------------------------------
         if ($user->role_id === 1) {
             $candidates = Candidate::with('position')->get();
-            $tally = Candidate::with('position')->withCount('votes')->get()->groupBy('position.position_name');
-            
-            return view('candidates.index', compact('candidates', 'tally', 'electionStatus'));
+            return view('candidates.index', compact('candidates', 'electionStatus', 'finalTally', 'election'));
         } 
         
         // ---------------------------------------------------------
-        // AUDITOR DASHBOARD (Role 2)
-        // ---------------------------------------------------------
-       // ---------------------------------------------------------
         // AUDITOR DASHBOARD (Role 2)
         // ---------------------------------------------------------
         elseif ($user->role_id === 2) { 
             $candidates = Candidate::with('position')->withCount('votes')->get();
             $tally = $candidates->groupBy('position.position_name');
             
-            // Calculate General Turnout Analytics
             $totalVoters = User::where('role_id', 3)->count(); 
             $totalVoted = Vote::distinct('user_id')->count('user_id'); 
             $turnoutPercentage = $totalVoters > 0 ? round(($totalVoted / $totalVoters) * 100, 1) : 0;
 
-            // NEW: Calculate specific votes cast PER POSITION for the Turnout Breakdown
             $votesPerPosition = collect();
             foreach($tally as $positionName => $positionCandidates) {
                 $votesPerPosition[$positionName] = $positionCandidates->sum('votes_count');
             }
 
-            // Fetch recent system logs
             $recentLogs = AuditLog::with('user')->orderBy('created_at', 'desc')->take(50)->get();
 
-            return view('candidates.index', compact('tally', 'totalVoters', 'totalVoted', 'turnoutPercentage', 'votesPerPosition', 'recentLogs', 'electionStatus'));
-        }
+            return view('candidates.index', compact('tally', 'totalVoters', 'totalVoted', 'turnoutPercentage', 'votesPerPosition', 'recentLogs', 'electionStatus', 'finalTally', 'maxVotesPerPosition', 'election'));
+        } 
         
         // ---------------------------------------------------------
         // STUDENT VOTER DASHBOARD (Role 3)
@@ -70,22 +76,19 @@ class CandidateController extends Controller
             $hasVoted = Vote::where('user_id', $user->id)->exists();
             $votedCandidates = [];
             $groupedCandidates = [];
-            $tally = collect(); // Initialize empty tally
+            $tally = collect(); 
 
             if ($hasVoted) {
-                // If they already voted, fetch their receipt
                 $voteIds = Vote::where('user_id', $user->id)->pluck('candidate_id');
                 $votedCandidates = Candidate::whereIn('id', $voteIds)->with('position')->get();
                 
-                // NEW: Also fetch the live tally so they can watch the results!
                 $allCandidates = Candidate::with('position')->withCount('votes')->get();
                 $tally = $allCandidates->groupBy('position.position_name');
             } else {
-                // If they haven't voted, fetch the ballot
                 $groupedCandidates = Candidate::with('position')->get()->groupBy('position.position_name');
             }
 
-            return view('candidates.index', compact('groupedCandidates', 'hasVoted', 'votedCandidates', 'electionStatus', 'tally'));
+            return view('candidates.index', compact('groupedCandidates', 'hasVoted', 'votedCandidates', 'electionStatus', 'tally', 'finalTally', 'totalBallots', 'maxVotesPerPosition', 'election'));
         }
     }
 
@@ -195,35 +198,83 @@ class CandidateController extends Controller
         return view('candidates.history', compact('electionHistory'));
     }
 
-    /**
-     * Display the Secure Audit Ledger for Admins & Auditors
+    /*
+     * Admin: Access Control & Results Publishing
      */
-   /**
-     * Display the Secure Audit Ledger for Admins & Auditors
+    public function accessControl()
+    {
+        if (auth()->user()->role_id !== 1) abort(403);
+        $auditors = User::where('role_id', 2)->get();
+        
+        $election = Election::first();
+        $electionStatus = $election ? $election->status : 'pending';
+        
+        // Calculate final tally so the Admin can review the winners here
+        $finalTally = collect();
+        if (in_array($electionStatus, ['certified', 'published'])) {
+            $finalTally = Candidate::with('position')->withCount('votes')->get()->groupBy('position.position_name');
+        }
+
+        return view('candidates.access', compact('auditors', 'electionStatus', 'finalTally'));
+    }
+
+    public function storeAuditor(Request $request)
+    {
+        if (auth()->user()->role_id !== 1) abort(403);
+        $request->validate(['name' => 'required|string', 'email' => 'required|email|unique:users', 'password' => 'required|min:6']);
+        
+        User::create([
+            'name' => $request->name,
+            'email' => $request->email,
+            'password' => bcrypt($request->password),
+            'role_id' => 2 // 2 is Auditor
+        ]);
+        return back()->with('success', 'Auditor account created successfully.');
+    }
+
+    /**
+     * Auditor: Certify and Send Results to Admin
+     */
+    public function certifyResults()
+    {
+        if (auth()->user()->role_id !== 2) abort(403);
+        Election::first()->update(['status' => 'certified']);
+        AuditLog::create(['user_id' => auth()->id(), 'action_description' => 'Certified election results and sent to Administration for publishing.']);
+        return back()->with('success', 'Results Certified and Sent to Admin!');
+    }
+
+    /**
+     * Admin: Publish the Certified Results
+     */
+    public function publishResults()
+    {
+        if (auth()->user()->role_id !== 1) abort(403);
+        Election::first()->update(['status' => 'published']);
+        AuditLog::create(['user_id' => auth()->id(), 'action_description' => 'Published official certified election results to the student portal.']);
+        return back()->with('success', 'Official Results Published to Students!');
+    }
+
+    /**
+     * Display the Secure Audit Ledger (RESTRICTED TO AUDITORS)
      */
     public function ledger()
     {
-        $user = auth()->user();
-        if ($user->role_id === 3) abort(403, 'Students cannot access the Audit Ledger.');
+        if (auth()->user()->role_id !== 2) abort(403, 'Only Auditors can access the Audit Ledger.');
 
         $election = Election::first();
         $electionStatus = $election ? $election->status : 'pending';
 
-        // 1. Fetch System Logs
         $logs = AuditLog::with('user')->orderBy('created_at', 'desc')->get();
-
-        // 2. Fetch Compiled Data
         $finalTally = Candidate::with('position')->withCount('votes')->get()->groupBy('position.position_name');
         $totalBallots = Vote::distinct('user_id')->count('user_id');
 
-        // 3. Calculate max votes per position to scale the progress bars beautifully
         $maxVotesPerPosition = [];
         foreach ($finalTally as $position => $candidates) {
             $maxVotes = $candidates->max('votes_count');
-            // Prevent division by zero if no one voted
             $maxVotesPerPosition[$position] = $maxVotes > 0 ? $maxVotes : 1; 
         }
 
         return view('candidates.ledger', compact('logs', 'electionStatus', 'finalTally', 'totalBallots', 'maxVotesPerPosition'));
     }
+    
 }

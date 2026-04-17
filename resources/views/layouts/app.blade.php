@@ -73,23 +73,24 @@
                     <i class="bi bi-grid-1x2-fill"></i> Dashboard
                 </a>
                 
-                @if(auth()->user()->role_id === 3)
-                    <a href="{{ route('history') }}" class="nav-item {{ request()->routeIs('history') ? 'active' : '' }}">
-                        <i class="bi bi-clock-history"></i> Election History
+                @if(auth()->user()->role_id === 1)
+                    <a href="{{ route('access') }}" class="nav-item {{ request()->routeIs('access') ? 'active' : '' }}">
+                        <i class="bi bi-shield-lock-fill"></i> Access Control
                     </a>
-                @else
+                @elseif(auth()->user()->role_id === 2)
                     <a href="{{ route('ledger') }}" class="nav-item {{ request()->routeIs('ledger') ? 'active' : '' }}">
                         <i class="bi bi-journal-text"></i> Audit Ledger
+                    </a>
+                @else
+                    <a href="{{ route('history') }}" class="nav-item {{ request()->routeIs('history') ? 'active' : '' }}">
+                        <i class="bi bi-clock-history"></i> Election History
                     </a>
                 @endif
                 
                 <div style="font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.12em; margin: 36px 0 16px 18px;">Preferences</div>
                 
                 <a href="#" class="nav-item">
-                    <i class="bi bi-person-badge"></i> Student Profile
-                </a>
-                <a href="#" class="nav-item">
-                    <i class="bi bi-universal-access-circle"></i> Accessibility
+                    <i class="bi bi-person-badge"></i> Profile Details
                 </a>
             </nav>
 

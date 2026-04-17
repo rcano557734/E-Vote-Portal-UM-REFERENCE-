@@ -19,6 +19,13 @@ Route::middleware('auth')->group(function () {
     Route::post('/election/toggle', [\App\Http\Controllers\CandidateController::class, 'toggleElection'])->name('election.toggle');
     Route::get('/history', [\App\Http\Controllers\CandidateController::class, 'history'])->name('history');
     Route::get('/ledger', [\App\Http\Controllers\CandidateController::class, 'ledger'])->name('ledger');
+    // Admin Access Control Routes
+    Route::get('/access-control', [\App\Http\Controllers\CandidateController::class, 'accessControl'])->name('access');
+    Route::post('/access-control/auditor', [\App\Http\Controllers\CandidateController::class, 'storeAuditor'])->name('auditor.store');
+
+    // Election Certification Routes
+    Route::post('/election/certify', [\App\Http\Controllers\CandidateController::class, 'certifyResults'])->name('election.certify');
+    Route::post('/election/publish', [\App\Http\Controllers\CandidateController::class, 'publishResults'])->name('election.publish');
 });
 
 require __DIR__.'/auth.php';
