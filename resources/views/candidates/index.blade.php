@@ -9,7 +9,13 @@
     .reveal { opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
     .reveal.active { opacity: 1; transform: translateY(0); }
     
-    /* Crisp White Cards against the Gray Background */
+    @keyframes subtle-bounce {
+        0%, 100% { transform: translate(-50%, 0); }
+        50% { transform: translate(-50%, 4px); }
+    }
+    .arrow-bounce { animation: subtle-bounce 2s infinite ease-in-out; }
+    
+    /* Crisp White Cards */
     .dash-card { 
         background: #ffffff; 
         border-radius: 20px; 
@@ -18,6 +24,7 @@
         transition: transform 0.3s ease, box-shadow 0.3s ease; 
         overflow: hidden; 
         margin-bottom: 32px; 
+        height: 100%; 
     }
     .dash-card:hover { 
         transform: translateY(-4px);
@@ -25,14 +32,8 @@
         border-color: #94a3b8; 
     }
     
-    /* Headers */
-    .dash-card-header { padding: 20px 28px; border-bottom: 1px solid #e2e8f0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 17px; background: #f8fafc; color: var(--text-dark);}
-    .bg-gradient-maroon { 
-        background: linear-gradient(135deg, var(--um-maroon), var(--um-maroon-dark)); 
-        color: #ffffff; 
-        border-bottom: none;
-        letter-spacing: 0.03em;
-    }
+    .dash-card-header { padding: 16px 24px; border-bottom: 1px solid #e2e8f0; font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 16px; background: #f8fafc; color: var(--text-dark);}
+    .bg-gradient-maroon { background: linear-gradient(135deg, var(--um-maroon), var(--um-maroon-dark)); color: #ffffff; border-bottom: none; letter-spacing: 0.03em; }
     
     /* UM Branded Buttons */
     .btn-dash-primary { background: linear-gradient(135deg, var(--um-maroon), var(--um-maroon-dark)); color: white; padding: 14px 28px; border-radius: 12px; font-weight: 700; font-size: 15px; border: none; transition: all 0.2s ease; box-shadow: 0 4px 15px rgba(138,21,56,0.25); text-transform: uppercase; letter-spacing: 0.05em;}
@@ -48,13 +49,11 @@
     .dark-stat { background: linear-gradient(135deg, #334155, #0f172a); }
     .stat-value { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; font-size: 48px; margin-top: 8px; line-height: 1; letter-spacing: -0.02em; }
     
-    /* Ballot Interactive UI */
+    /* Ballot UI */
     .ballot-check { display: flex; align-items: center; padding: 24px; border: 2px solid #e2e8f0; border-radius: 16px; cursor: pointer; transition: all 0.2s; background: #f8fafc; margin-bottom: 16px; }
     .ballot-check:hover { border-color: var(--um-maroon); background: #ffffff; box-shadow: 0 8px 20px rgba(138,21,56,0.08); transform: translateY(-2px);}
     .ballot-check input[type="radio"] { display: none; }
     .custom-radio { width: 26px; height: 26px; border: 2px solid #94a3b8; border-radius: 50%; margin-right: 24px; display: flex; align-items: center; justify-content: center; transition: all 0.2s; background: white;}
-    
-    /* Checked State */
     .ballot-check input[type="radio"]:checked + .custom-radio { border-color: var(--um-maroon); background: var(--um-maroon); box-shadow: 0 0 0 5px rgba(138,21,56, 0.15); }
     .ballot-check input[type="radio"]:checked + .custom-radio::after { content: ''; width: 10px; height: 10px; background: var(--um-gold); border-radius: 50%; }
     .ballot-check:has(input[type="radio"]:checked) { border-color: var(--um-maroon); background: var(--um-maroon-light); }
@@ -143,82 +142,177 @@
             <span style="background: white; border: 1px solid #cbd5e1; color: #475569; padding: 8px 16px; border-radius: 50px; font-weight: 700; font-size: 13px; box-shadow: 0 2px 10px rgba(0,0,0,0.05);"><i class="bi bi-eye-fill me-1 text-warning"></i> Audit Mode</span>
         </div>
 
-        <div class="row mb-5">
+        <div class="row mb-4">
             <div class="col-md-4"><div class="stat-card maroon-stat reveal" style="transition-delay: 0.1s;"><div style="font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 13px; opacity: 0.9;">Total Students</div><div class="stat-value">{{ $totalVoters }}</div></div></div>
-            <div class="col-md-4"><div class="stat-card gold-stat reveal" style="transition-delay: 0.2s;"><div style="font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 13px; opacity: 0.8;">Ballots Cast</div><div class="stat-value">{{ $totalVoted }}</div></div></div>
-            <div class="col-md-4"><div class="stat-card dark-stat reveal" style="transition-delay: 0.3s;"><div style="font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 13px; opacity: 0.8;">Voter Turnout</div><div class="stat-value">{{ $turnoutPercentage }}%</div></div></div>
-        </div>
-
-        <div class="dash-card reveal p-5 mb-5">
-            <div class="d-flex justify-content-between align-items-center mb-4">
-                <div>
-                    <h4 class="dash-title m-0">Live Vote Margin Predictions</h4>
-                    <p class="text-muted m-0 mt-1">Statistical breakdown based on current student turnout.</p>
+            <div class="col-md-4"><div class="stat-card gold-stat reveal" style="transition-delay: 0.2s;"><div style="font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 13px; opacity: 0.8; color: #0f172a;">Total Ballots Cast</div><div class="stat-value">{{ $totalVoted }}</div></div></div>
+            
+            <div class="col-md-4">
+                <div class="stat-card dark-stat reveal" style="transition-delay: 0.3s; cursor: pointer; position: relative; padding-bottom: 45px;" onclick="toggleTurnoutDetails()" id="turnoutCard" onmouseover="this.style.transform='translateY(-6px)'; this.style.boxShadow='0 15px 30px rgba(0,0,0,0.1)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 10px 20px rgba(0,0,0,0.05)';">
+                    <div style="font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; font-size: 13px; opacity: 0.9; color: #e2e8f0;">Voter Turnout</div>
+                    <div class="stat-value text-white">{{ $turnoutPercentage }}%</div>
+                    
+                    <div class="arrow-bounce" style="position: absolute; bottom: 12px; left: 50%; background: rgba(255,255,255,0.15); padding: 4px 16px; border-radius: 20px; backdrop-filter: blur(4px); border: 1px solid rgba(255,255,255,0.2); display: flex; align-items: center; white-space: nowrap;">
+                        <span style="font-size: 10px; text-transform: uppercase; font-weight: 800; letter-spacing: 0.1em; margin-right: 6px; color: white;">View Breakdown</span>
+                        <i class="bi bi-chevron-down text-white" id="turnoutIcon" style="transition: transform 0.3s; font-size: 14px;"></i>
+                    </div>
                 </div>
-                <div style="background: var(--um-maroon-light); color: var(--um-maroon); padding: 8px 16px; border-radius: 8px; font-weight: 700; font-size: 13px;"><i class="bi bi-graph-up-arrow me-2"></i> Real-Time</div>
             </div>
-            <canvas id="predictionChart" height="90"></canvas>
         </div>
 
-        <div class="row">
-            <div class="col-md-6">
-                <h4 class="dash-title mb-4 reveal">System Audit Logs</h4>
-                <div class="dash-card reveal p-2" style="max-height: 500px; overflow-y: auto;">
-                    @forelse($recentLogs as $log)
-                        <div class="d-flex p-3 border-bottom" style="border-color: #f1f5f9 !important;">
-                            <div style="width: 40px; height: 40px; background: #f8fafc; border-radius: 10px; display: flex; align-items: center; justify-content: center; color: #64748b; margin-right: 16px; border: 1px solid #e2e8f0;"><i class="bi bi-clock-history"></i></div>
-                            <div>
-                                <div class="fw-bold text-dark">{{ $log->user->name }} <span class="text-muted fw-normal" style="font-size: 14px;">— {{ $log->action_description }}</span></div>
-                                <div style="font-size: 12px; margin-top: 4px;" class="text-muted fw-bold">{{ $log->created_at->format('M d, Y - g:i A') }}</div>
-                            </div>
+        <div id="turnoutBreakdown" style="display: none;">
+            <div class="dash-card reveal p-4 mb-5" style="border-top: 4px solid var(--um-maroon); background: #f8fafc;">
+                <h5 class="dash-title mb-4 fs-5"><i class="bi bi-diagram-3-fill text-muted me-2"></i>Participation by Position</h5>
+                <div class="row g-3">
+                    @foreach($votesPerPosition as $position => $count)
+                    <div class="col-md-3 col-sm-6">
+                        <div class="p-3 bg-white border rounded shadow-sm">
+                            <div class="text-muted text-uppercase fw-bold mb-1" style="font-size: 11px; letter-spacing: 0.05em;">{{ $position }}</div>
+                            <div class="fs-4 fw-bold" style="color: var(--um-maroon); font-family: 'Bricolage Grotesque';">{{ $count }} <span class="fs-6 text-muted fw-normal" style="font-family: 'DM Sans';">votes</span></div>
                         </div>
-                    @empty
-                        <div class="p-5 text-center text-muted">No logs recorded yet.</div>
-                    @endforelse
+                    </div>
+                    @endforeach
                 </div>
             </div>
         </div>
 
         <script>
-            document.addEventListener("DOMContentLoaded", function() {
-                const ctx = document.getElementById('predictionChart').getContext('2d');
-                const labels = []; const data = [];
-                @foreach($tally as $pos => $cands)
-                    @foreach($cands as $c)
-                        labels.push('{{ $c->candidate_name }} ({{ $c->position->position_name }})');
-                        data.push({{ $c->votes_count }});
-                    @endforeach
-                @endforeach
-
-                new Chart(ctx, {
-                    type: 'bar',
-                    data: {
-                        labels: labels,
-                        datasets: [{
-                            label: 'Verified Votes',
-                            data: data,
-                            backgroundColor: '#8a1538', /* UM Maroon */
-                            borderColor: '#5c0d24',
-                            borderWidth: 1,
-                            borderRadius: 8,
-                            hoverBackgroundColor: '#fdb813' /* UM Gold on hover */
-                        }]
-                    },
-                    options: { 
-                        responsive: true, 
-                        scales: { 
-                            y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
-                            x: { grid: { display: false } }
-                        },
-                        plugins: { legend: { display: false } }
-                    }
-                });
-            });
+            function toggleTurnoutDetails() {
+                const panel = document.getElementById('turnoutBreakdown');
+                const icon = document.getElementById('turnoutIcon');
+                if (panel.style.display === 'none') {
+                    panel.style.display = 'block';
+                    icon.classList.replace('bi-chevron-down', 'bi-chevron-up');
+                } else {
+                    panel.style.display = 'none';
+                    icon.classList.replace('bi-chevron-up', 'bi-chevron-down');
+                }
+            }
         </script>
 
-@else
+        @if($electionStatus === 'active')
+            <div class="d-flex justify-content-between align-items-center mb-4 reveal">
+                <h4 class="dash-title m-0">Live Election Tally</h4>
+                <span class="badge" style="background: var(--um-maroon-light); color: var(--um-maroon); font-size: 12px; padding: 6px 12px;"><i class="bi bi-broadcast me-1"></i> Real-Time Updates</span>
+            </div>
+            
+            <div class="row mb-5">
+                @foreach($tally as $positionName => $positionCandidates)
+                    <div class="col-lg-6 col-xl-4 mb-4">
+                        <div class="dash-card reveal m-0" style="transition-delay: {{ $loop->index * 0.1 }}s;">
+                            <div class="dash-card-header bg-gradient-maroon text-center fs-6 py-3">{{ $positionName }}</div>
+                            <div class="p-3 bg-white">
+                                @foreach($positionCandidates->sortByDesc('votes_count') as $index => $candidate)
+                                    <div class="d-flex align-items-center p-2 mb-2 rounded" style="background: {{ $index === 0 ? '#fdf2f5' : '#f8fafc' }}; border: 1px solid {{ $index === 0 ? '#fbcfe8' : '#e2e8f0' }};">
+                                        <div class="fw-bold me-2 text-muted" style="font-size: 14px; width: 15px;">#{{ $index + 1 }}</div>
+                                        <div class="ms-2 flex-grow-1">
+                                            <span class="fw-bold text-dark d-block" style="font-family: 'Bricolage Grotesque'; font-size: 15px; line-height: 1.1;">{{ $candidate->candidate_name }}</span>
+                                            @if($index === 0)
+                                                <span style="color: var(--um-gold-dark); font-size: 10px; font-weight: 800;"><i class="bi bi-star-fill me-1"></i>LEADER</span>
+                                            @endif
+                                        </div>
+                                        <div class="text-end ms-2">
+                                            <span style="background: {{ $index === 0 ? 'var(--um-maroon)' : '#475569' }}; color: white; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 14px;">
+                                                {{ $candidate->votes_count }}
+                                            </span>
+                                        </div>
+                                    </div>
+                                @endforeach
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            <div class="d-flex justify-content-between align-items-center mb-4 reveal">
+                <h4 class="dash-title m-0">Live Margin Predictions</h4>
+                <i class="bi bi-bar-chart-line-fill text-muted fs-4"></i>
+            </div>
+
+            <div class="row mb-5">
+                @foreach($tally as $positionName => $positionCandidates)
+                    <div class="col-lg-6 col-xl-4 mb-4">
+                        <div class="dash-card reveal p-4 m-0" style="transition-delay: {{ $loop->index * 0.1 }}s; display: flex; flex-direction: column;">
+                            <h6 class="text-center fw-bold mb-4" style="color: var(--text-dark); text-transform: uppercase;">{{ $positionName }} Race</h6>
+                            <div style="position: relative; flex-grow: 1; width: 100%; min-height: 250px;">
+                                <canvas id="auditorChart_{{ $loop->index }}"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
+            </div>
+
+            <script>
+                document.addEventListener("DOMContentLoaded", function() {
+                    @foreach($tally as $positionName => $positionCandidates)
+                        (function() {
+                            const ctx = document.getElementById('auditorChart_{{ $loop->index }}').getContext('2d');
+                            const labels = {!! json_encode($positionCandidates->pluck('candidate_name')) !!};
+                            const data = {!! json_encode($positionCandidates->pluck('votes_count')) !!};
+
+                            new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: labels,
+                                    datasets: [{
+                                        label: 'Votes',
+                                        data: data,
+                                        backgroundColor: '#8a1538', 
+                                        borderColor: '#5c0d24',
+                                        borderWidth: 1,
+                                        borderRadius: 4,
+                                        hoverBackgroundColor: '#fdb813' 
+                                    }]
+                                },
+                                options: { 
+                                    responsive: true, 
+                                    maintainAspectRatio: false,
+                                    scales: { 
+                                        y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
+                                        x: { 
+                                            grid: { display: false }, 
+                                            ticks: { 
+                                                display: true, 
+                                                font: { family: 'DM Sans', size: 10 },
+                                                color: '#475569',
+                                                maxRotation: 45,
+                                                minRotation: 0
+                                            } 
+                                        } 
+                                    },
+                                    plugins: { 
+                                        legend: { display: false },
+                                        tooltip: { callbacks: { title: function(context) { return context[0].label; } } }
+                                    }
+                                }
+                            });
+                        })();
+                    @endforeach
+                });
+            </script>
+        @else
+            <div class="dash-card mx-auto reveal text-center p-5 mt-5" style="max-width: 600px; border-top: 6px solid #94a3b8;">
+                <div style="width: 90px; height: 90px; background: #f1f5f9; color: #64748b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 24px;"><i class="bi bi-lock-fill"></i></div>
+                <h2 class="dash-title" style="font-size: 32px;">Live Tracking Offline</h2>
+                <p class="text-muted fs-6 mt-3">
+                    @if($electionStatus === 'pending') The polls have not opened yet. Live tracking will begin once the election starts.
+                    @else The election is officially closed. The live tally has been cleared. Please review the <strong>Audit Ledger</strong> for the final certified results. @endif
+                </p>
+            </div>
+        @endif
+
+    @else
         
-        @if($hasVoted)
+        @if($electionStatus !== 'active')
+            <div class="dash-card mx-auto reveal text-center p-5" style="max-width: 600px; margin-top: 60px; border-top: 6px solid #94a3b8;">
+                <div style="width: 90px; height: 90px; background: #f1f5f9; color: #64748b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 24px;"><i class="bi bi-lock-fill"></i></div>
+                <h2 class="dash-title" style="font-size: 32px;">Election {{ ucfirst($electionStatus) }}</h2>
+                <p class="text-muted fs-6 mt-3">
+                    @if($electionStatus === 'pending') The polls have not opened yet. Please wait for the UM Administrator to officially start the election.
+                    @else The polls are officially closed. The live tally is no longer available. You can view your ballot receipt in the <strong>Election History</strong> tab. @endif
+                </p>
+            </div>
+
+        @elseif($hasVoted)
             <div class="dash-card mx-auto reveal text-center p-5 mb-5" style="max-width: 800px; margin-top: 20px; border-top: 6px solid var(--um-maroon);">
                 <div class="d-flex justify-content-center gap-4 align-items-center mb-4">
                     <div style="width: 70px; height: 70px; background: var(--um-maroon-light); color: var(--um-maroon); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 35px;"><i class="bi bi-shield-lock-fill"></i></div>
@@ -251,33 +345,27 @@
 
             <div class="row mx-auto" style="max-width: 1000px;">
                 @foreach($tally as $positionName => $positionCandidates)
-                    <div class="col-md-6">
-                        <div class="dash-card reveal mb-4" style="transition-delay: {{ $loop->index * 0.1 }}s;">
-                            <div class="dash-card-header bg-gradient-maroon text-center fs-5">{{ $positionName }}</div>
+                    <div class="col-lg-6 col-xl-4 mb-4">
+                        <div class="dash-card reveal m-0" style="transition-delay: {{ $loop->index * 0.1 }}s;">
+                            <div class="dash-card-header bg-gradient-maroon text-center fs-6 py-3">{{ $positionName }}</div>
                             <div class="p-3 bg-white">
                                 @foreach($positionCandidates->sortByDesc('votes_count') as $index => $candidate)
-                                    <div class="d-flex align-items-center p-3 mb-2 rounded" style="background: {{ $index === 0 ? '#fdf2f5' : '#f8fafc' }}; border: 1px solid {{ $index === 0 ? '#fbcfe8' : '#e2e8f0' }};">
-                                        
-                                        <div class="fw-bold me-3 text-muted" style="font-size: 18px; width: 20px;">#{{ $index + 1 }}</div>
-                                        
-                                        <div style="width: 50px; height: 50px; background: white; border: 2px solid {{ $index === 0 ? 'var(--um-maroon)' : '#cbd5e1' }}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; color: #94a3b8; flex-shrink: 0; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
+                                    <div class="d-flex align-items-center p-2 mb-2 rounded" style="background: {{ $index === 0 ? '#fdf2f5' : '#f8fafc' }}; border: 1px solid {{ $index === 0 ? '#fbcfe8' : '#e2e8f0' }};">
+                                        <div class="fw-bold me-2 text-muted" style="font-size: 14px; width: 15px;">#{{ $index + 1 }}</div>
+                                        <div style="width: 35px; height: 35px; background: white; border: 2px solid {{ $index === 0 ? 'var(--um-maroon)' : '#cbd5e1' }}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #94a3b8; flex-shrink: 0; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
                                             <i class="bi bi-person-fill"></i>
                                         </div>
-                                        
-                                        <div class="ms-3 flex-grow-1">
-                                            <span class="fw-bold text-dark fs-5 d-block" style="font-family: 'Bricolage Grotesque'; line-height: 1.2;">{{ $candidate->candidate_name }}</span>
+                                        <div class="ms-2 flex-grow-1">
+                                            <span class="fw-bold text-dark d-block" style="font-family: 'Bricolage Grotesque'; font-size: 14px; line-height: 1.1;">{{ $candidate->candidate_name }}</span>
                                             @if($index === 0)
-                                                <span class="badge mt-1" style="background: var(--um-gold); color: #0f172a; font-size: 10px; font-weight: 800;"><i class="bi bi-star-fill me-1"></i> CURRENT LEADER</span>
+                                                <span style="color: var(--um-gold-dark); font-size: 9px; font-weight: 800;"><i class="bi bi-star-fill me-1"></i>LEADER</span>
                                             @endif
                                         </div>
-                                        
                                         <div class="text-end ms-2">
-                                            <span style="background: {{ $index === 0 ? 'var(--um-maroon)' : '#475569' }}; color: white; padding: 8px 16px; border-radius: 12px; font-weight: 800; font-size: 16px; display: inline-block; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                                            <span style="background: {{ $index === 0 ? 'var(--um-maroon)' : '#475569' }}; color: white; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 13px;">
                                                 {{ $candidate->votes_count }}
                                             </span>
-                                            <div class="text-muted mt-1" style="font-size: 11px; font-weight: 700; text-transform: uppercase;">Votes</div>
                                         </div>
-                                        
                                     </div>
                                 @endforeach
                             </div>
@@ -285,16 +373,59 @@
                     </div>
                 @endforeach
             </div>
-        
-        @elseif($electionStatus !== 'active')
-            <div class="dash-card mx-auto reveal text-center p-5" style="max-width: 600px; margin-top: 60px; border-top: 6px solid #94a3b8;">
-                <div style="width: 90px; height: 90px; background: #f1f5f9; color: #64748b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 40px; margin: 0 auto 24px;"><i class="bi bi-lock-fill"></i></div>
-                <h2 class="dash-title" style="font-size: 32px;">Election {{ ucfirst($electionStatus) }}</h2>
-                <p class="text-muted fs-6 mt-3">
-                    @if($electionStatus === 'pending') The polls have not opened yet. Please wait for the UM Administrator to officially start the election.
-                    @else The polls are officially closed. The results are currently being audited by the Electoral Board. @endif
-                </p>
+
+            <div class="row mx-auto mb-5" style="max-width: 1000px;">
+                @foreach($tally as $positionName => $positionCandidates)
+                    <div class="col-lg-6 col-xl-4 mb-4">
+                        <div class="dash-card reveal p-4 m-0" style="transition-delay: {{ $loop->index * 0.1 }}s; display: flex; flex-direction: column;">
+                            <h6 class="text-center fw-bold mb-4" style="color: var(--text-dark); text-transform: uppercase;">{{ $positionName }} Race</h6>
+                            <div style="position: relative; flex-grow: 1; width: 100%; min-height: 250px;">
+                                <canvas id="voterChart_{{ $loop->index }}"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                @endforeach
             </div>
+
+            <script>
+                document.addEventListener("DOMContentLoaded", function() {
+                    @foreach($tally as $positionName => $positionCandidates)
+                        (function() {
+                            const ctx = document.getElementById('voterChart_{{ $loop->index }}').getContext('2d');
+                            const labels = {!! json_encode($positionCandidates->pluck('candidate_name')) !!};
+                            const data = {!! json_encode($positionCandidates->pluck('votes_count')) !!};
+
+                            new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: labels,
+                                    datasets: [{
+                                        label: 'Votes',
+                                        data: data,
+                                        backgroundColor: '#8a1538',
+                                        borderColor: '#5c0d24',
+                                        borderWidth: 1,
+                                        borderRadius: 4,
+                                        hoverBackgroundColor: '#fdb813'
+                                    }]
+                                },
+                                options: { 
+                                    responsive: true, 
+                                    maintainAspectRatio: false,
+                                    scales: { 
+                                        y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
+                                        x: { 
+                                            grid: { display: false }, 
+                                            ticks: { display: true, font: { family: 'DM Sans', size: 10 }, color: '#475569', maxRotation: 45, minRotation: 0 } 
+                                        } 
+                                    },
+                                    plugins: { legend: { display: false } }
+                                }
+                            });
+                        })();
+                    @endforeach
+                });
+            </script>
 
         @else
             <div class="text-center mb-5 mt-3 reveal">
@@ -347,7 +478,7 @@
                         text: "You cannot change your vote after submitting your student ballot!",
                         icon: 'warning',
                         showCancelButton: true,
-                        confirmButtonColor: '#8a1538', /* UM Maroon */
+                        confirmButtonColor: '#8a1538', 
                         cancelButtonColor: '#64748b',
                         confirmButtonText: 'Yes, submit my ballot!'
                     }).then((result) => {

@@ -18,6 +18,7 @@ Route::middleware('auth')->group(function () {
     Route::delete('/profile', [ProfileController::class, 'destroy'])->name('profile.destroy');
     Route::post('/election/toggle', [\App\Http\Controllers\CandidateController::class, 'toggleElection'])->name('election.toggle');
     Route::get('/history', [\App\Http\Controllers\CandidateController::class, 'history'])->name('history');
+    Route::get('/ledger', [\App\Http\Controllers\CandidateController::class, 'ledger'])->name('ledger');
 });
 
 require __DIR__.'/auth.php';

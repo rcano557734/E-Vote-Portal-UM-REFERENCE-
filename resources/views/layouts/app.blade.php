@@ -72,11 +72,18 @@
                 <a href="{{ route('candidates.index') }}" class="nav-item {{ request()->routeIs('candidates.index') ? 'active' : '' }}">
                     <i class="bi bi-grid-1x2-fill"></i> Dashboard
                 </a>
-                <a href="{{ route('history') }}" class="nav-item {{ request()->routeIs('history') ? 'active' : '' }}">
-                    <i class="bi bi-clock-history"></i> Election History
-                </a>
                 
-                <div style="font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.12em; margin: 36px 0 16px 18px;">Settings</div>
+                @if(auth()->user()->role_id === 3)
+                    <a href="{{ route('history') }}" class="nav-item {{ request()->routeIs('history') ? 'active' : '' }}">
+                        <i class="bi bi-clock-history"></i> Election History
+                    </a>
+                @else
+                    <a href="{{ route('ledger') }}" class="nav-item {{ request()->routeIs('ledger') ? 'active' : '' }}">
+                        <i class="bi bi-journal-text"></i> Audit Ledger
+                    </a>
+                @endif
+                
+                <div style="font-size: 12px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.12em; margin: 36px 0 16px 18px;">Preferences</div>
                 
                 <a href="#" class="nav-item">
                     <i class="bi bi-person-badge"></i> Student Profile

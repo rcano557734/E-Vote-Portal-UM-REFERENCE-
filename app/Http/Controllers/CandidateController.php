@@ -39,20 +39,29 @@ class CandidateController extends Controller
         // ---------------------------------------------------------
         // AUDITOR DASHBOARD (Role 2)
         // ---------------------------------------------------------
+       // ---------------------------------------------------------
+        // AUDITOR DASHBOARD (Role 2)
+        // ---------------------------------------------------------
         elseif ($user->role_id === 2) { 
             $candidates = Candidate::with('position')->withCount('votes')->get();
             $tally = $candidates->groupBy('position.position_name');
             
-            // Calculate Turnout Analytics
+            // Calculate General Turnout Analytics
             $totalVoters = User::where('role_id', 3)->count(); 
             $totalVoted = Vote::distinct('user_id')->count('user_id'); 
             $turnoutPercentage = $totalVoters > 0 ? round(($totalVoted / $totalVoters) * 100, 1) : 0;
 
+            // NEW: Calculate specific votes cast PER POSITION for the Turnout Breakdown
+            $votesPerPosition = collect();
+            foreach($tally as $positionName => $positionCandidates) {
+                $votesPerPosition[$positionName] = $positionCandidates->sum('votes_count');
+            }
+
             // Fetch recent system logs
             $recentLogs = AuditLog::with('user')->orderBy('created_at', 'desc')->take(50)->get();
 
-            return view('candidates.index', compact('tally', 'totalVoters', 'totalVoted', 'turnoutPercentage', 'recentLogs', 'electionStatus'));
-        } 
+            return view('candidates.index', compact('tally', 'totalVoters', 'totalVoted', 'turnoutPercentage', 'votesPerPosition', 'recentLogs', 'electionStatus'));
+        }
         
         // ---------------------------------------------------------
         // STUDENT VOTER DASHBOARD (Role 3)
@@ -183,7 +192,38 @@ class CandidateController extends Controller
         $electionHistory = $votes->groupBy(function($vote) {
             return \Carbon\Carbon::parse($vote->created_at)->format('F Y'); // e.g., "April 2026"
         });
-
         return view('candidates.history', compact('electionHistory'));
+    }
+
+    /**
+     * Display the Secure Audit Ledger for Admins & Auditors
+     */
+   /**
+     * Display the Secure Audit Ledger for Admins & Auditors
+     */
+    public function ledger()
+    {
+        $user = auth()->user();
+        if ($user->role_id === 3) abort(403, 'Students cannot access the Audit Ledger.');
+
+        $election = Election::first();
+        $electionStatus = $election ? $election->status : 'pending';
+
+        // 1. Fetch System Logs
+        $logs = AuditLog::with('user')->orderBy('created_at', 'desc')->get();
+
+        // 2. Fetch Compiled Data
+        $finalTally = Candidate::with('position')->withCount('votes')->get()->groupBy('position.position_name');
+        $totalBallots = Vote::distinct('user_id')->count('user_id');
+
+        // 3. Calculate max votes per position to scale the progress bars beautifully
+        $maxVotesPerPosition = [];
+        foreach ($finalTally as $position => $candidates) {
+            $maxVotes = $candidates->max('votes_count');
+            // Prevent division by zero if no one voted
+            $maxVotesPerPosition[$position] = $maxVotes > 0 ? $maxVotes : 1; 
+        }
+
+        return view('candidates.ledger', compact('logs', 'electionStatus', 'finalTally', 'totalBallots', 'maxVotesPerPosition'));
     }
 }
