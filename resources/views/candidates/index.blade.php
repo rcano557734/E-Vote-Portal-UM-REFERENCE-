@@ -65,7 +65,7 @@
     
     // 7-Day Timer Logic
     $isWithinWeek = false;
-    if ($electionStatus === 'published' && $election) {
+    if ($electionStatus === 'published' && isset($election)) {
         $isWithinWeek = \Carbon\Carbon::parse($election->updated_at)->addDays(7)->isFuture();
     }
 
@@ -128,7 +128,7 @@
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($candidates as $candidate)
+                                @forelse($electionStatus === 'pending' ? $candidates : [] as $candidate)
                                     <tr style="border-bottom: 1px solid #f1f5f9;">
                                         <td class="ps-4 py-3 fw-bold text-dark fs-6" style="font-family: 'Bricolage Grotesque';">{{ $candidate->candidate_name }}</td>
                                         <td><span style="background: #f1f5f9; color: #475569; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 700;">{{ $candidate->position->position_name }}</span></td>
@@ -140,7 +140,7 @@
                                         </td>
                                     </tr>
                                 @empty
-                                    <tr><td colspan="3" class="text-center py-5 text-muted">No candidates registered.</td></tr>
+                                    <tr><td colspan="3" class="text-center py-5 text-muted"><i class="bi bi-inbox fs-4 d-block mb-2"></i> No candidates currently available.</td></tr>
                                 @endforelse
                             </tbody>
                         </table>
@@ -333,7 +333,7 @@
                             <div class="dash-card reveal p-4 m-0" style="transition-delay: {{ $loop->index * 0.1 }}s; display: flex; flex-direction: column;">
                                 <h6 class="text-center fw-bold mb-4" style="color: var(--text-dark); text-transform: uppercase;">{{ $positionName }} Race</h6>
                                 <div style="position: relative; flex-grow: 1; width: 100%; min-height: 250px;">
-                                    <canvas id="liveChart_{{ $loop->index }}"></canvas>
+                                    <canvas id="chart_{{ $loop->index }}"></canvas>
                                 </div>
                             </div>
                         </div>
@@ -344,7 +344,7 @@
                     document.addEventListener("DOMContentLoaded", function() {
                         @foreach($tally as $positionName => $positionCandidates)
                             (function() {
-                                const ctx = document.getElementById('liveChart_{{ $loop->index }}').getContext('2d');
+                                const ctx = document.getElementById('chart_{{ $loop->index }}').getContext('2d');
                                 const labels = {!! json_encode($positionCandidates->pluck('candidate_name')) !!};
                                 const data = {!! json_encode($positionCandidates->pluck('votes_count')) !!};
 
