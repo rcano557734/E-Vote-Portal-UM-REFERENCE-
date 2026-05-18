@@ -10,6 +10,8 @@ use Illuminate\Notifications\Notifiable;
 
 class User extends Authenticatable
 {
+
+    
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 
@@ -18,6 +20,10 @@ class User extends Authenticatable
      *
      * @var list<string>
      */
+
+    const ADMIN = 1;
+    const AUDITOR = 2;
+    const VOTER = 3;
     protected $fillable = [
         'name',
         'email',
@@ -31,7 +37,7 @@ class User extends Authenticatable
     }
 
     public function isAdmin() { 
-        return $this->role_id === 1;     
+        return $this->role_id === self::ADMIN;    
     }
     /**
      * The attributes that should be hidden for serialization.

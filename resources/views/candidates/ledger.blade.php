@@ -30,7 +30,6 @@
     <div class="d-flex justify-content-between align-items-center mb-5 reveal">
         <div>
             <h2 class="dash-title m-0" style="font-size: 38px;">Audit Ledger</h2>
-            <p class="text-muted mt-2 mb-0">System-wide transparency records and final election tallies.</p>
         </div>
         <div style="background: white; border: 1px solid #cbd5e1; padding: 10px 20px; border-radius: 50px; font-weight: 800; font-size: 13px; color: var(--text-dark); box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
             ELECTION STATUS: 
@@ -45,8 +44,10 @@
     @endif
 
     <div class="row">
-        <div class="col-lg-5 col-md-12 reveal">
-            <h4 class="dash-title mb-3 fs-5"><i class="bi bi-card-list me-2 text-muted"></i> System Event Ledger</h4>
+        <h4 class="dash-title mb-3 fs-5 d-flex justify-content-between align-items-center">
+                <span><i class="bi bi-card-list me-2 text-muted"></i> System Event Ledger</span>
+                <input type="text" id="logSearch" class="form-control form-control-sm rounded-pill px-3" placeholder="Search logs..." style="width: 150px; font-size: 12px; border: 1px solid #cbd5e1;">
+            </h4>
             <div class="um-log-window">
                 <div class="log-header">
                     <span style="font-family: 'Bricolage Grotesque'; font-weight: 800; color: var(--text-dark);"><i class="bi bi-shield-check text-success me-2"></i> UM E-Vote Security Core</span>
@@ -59,7 +60,7 @@
                         <div>
                             <div class="d-flex justify-content-between align-items-center mb-1">
                                 <span class="fw-bold" style="color: var(--text-dark); font-size: 14px;">{{ $log->user->name }}</span>
-                                <span class="text-muted" style="font-size: 11px; font-family: monospace;">{{ $log->created_at->format('M d, H:i:s') }}</span>
+                                <span class="text-muted" style="font-size: 11px; font-family: monospace;">{{ $log->created_at->format('M d, h:i A') }}</span>
                             </div>
                             <div style="color: #475569; font-size: 13px; line-height: 1.5;">{{ $log->action_description }}</div>
                         </div>
@@ -107,7 +108,11 @@
                     <div class="p-4 text-center border-bottom" style="background: #fdf2f5;">
                         <h5 class="dash-title fs-5 mb-2 text-danger"><i class="bi bi-exclamation-triangle-fill me-2"></i> Action Required</h5>
                         <p class="text-muted fs-6 mb-3">Review the final tallies below. Once verified, send the certified data to Administration for publishing.</p>
-                        <form action="{{ route('election.certify') }}" method="POST">
+                        <form action="{{ route('election.certify') }}" method="POST" class="confirm-form"
+                            data-title="Certify Official Results?" 
+                            data-text="You are about to officially certify this election. This will lock the results and send them to the Administration." 
+                            data-btn="Yes, Certify Results" 
+                            data-color="#dc2626">
                             @csrf
                             <button type="submit" class="btn btn-danger fw-bold px-4 py-2" style="border-radius: 8px; box-shadow: 0 4px 10px rgba(220, 38, 38, 0.3);">
                                 Certify & Send Results to Admin <i class="bi bi-send-fill ms-2"></i>
@@ -176,4 +181,19 @@
         reveals.forEach(reveal => observer.observe(reveal));
     });
 </script>
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const logSearch = document.getElementById('logSearch');
+        if(logSearch) {
+            logSearch.addEventListener('keyup', function(e) {
+                const term = e.target.value.toLowerCase();
+                const logs = document.querySelectorAll('.log-entry');
+                logs.forEach(log => {
+                    const text = log.innerText.toLowerCase();
+                    log.style.display = text.includes(term) ? 'flex' : 'none';
+                });
+            });
+        }
+    });
+</script>   
 @endsection

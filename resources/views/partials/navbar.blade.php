@@ -30,7 +30,11 @@
                     </div>
                 </div>
                 
-                <form method="POST" action="{{ route('logout') }}" class="m-0">
+                <form method="POST" action="{{ route('logout') }}" class="m-0 confirm-form" 
+                    data-title="Ready to leave?" 
+                    data-text="Are you sure you want to log out of your session?" 
+                    data-btn="Yes, Log Out" 
+                    data-color="#dc2626">
                     @csrf
                     <button type="submit" style="background: rgba(254, 226, 226, 0.5); border: 1.5px solid #fecaca; color: #dc2626; padding: 8px 18px; border-radius: 10px; font-weight: 700; font-size: 13px; transition: all 0.2s; cursor: pointer;" 
                         onmouseover="this.style.background='#fee2e2'; this.style.transform='translateY(-2px)';" 

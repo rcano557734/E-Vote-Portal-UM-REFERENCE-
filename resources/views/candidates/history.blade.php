@@ -3,89 +3,108 @@
 @section('content')
 <style>
     .dash-title { font-family: 'Bricolage Grotesque', sans-serif; font-weight: 800; color: var(--text-dark); letter-spacing: -0.03em; }
-    .reveal { opacity: 0; transform: translateY(30px); transition: all 0.6s cubic-bezier(0.16, 1, 0.3, 1); }
-    .reveal.active { opacity: 1; transform: translateY(0); }
+    .dash-card { background: #ffffff; border-radius: 16px; border: 1px solid #cbd5e1; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05); overflow: hidden; margin-bottom: 32px;}
     
-    .dash-card { 
-        background: #ffffff; 
-        border-radius: 20px; 
-        border: 1px solid #cbd5e1; 
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
-        transition: transform 0.3s ease, box-shadow 0.3s ease; 
-        overflow: hidden; 
-        margin-bottom: 32px; 
+    .ledger-header { 
+        background: #f8fafc; 
+        padding: 20px 24px; 
+        display: flex; 
+        justify-content: space-between; 
+        align-items: center; 
+        border-bottom: 2px solid #e2e8f0;
     }
-    .dash-card:hover { 
-        transform: translateY(-4px);
-        box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.05);
-        border-color: #94a3b8; 
+    
+    .table-history th { 
+        font-size: 11px; 
+        text-transform: uppercase; 
+        letter-spacing: 0.1em; 
+        color: #64748b; 
+        background-color: white; 
+        padding: 16px 24px;
+        border-bottom: 1px solid #e2e8f0;
     }
-    .dash-card-header { 
-        padding: 20px 28px; 
-        font-family: 'Bricolage Grotesque', sans-serif; 
-        font-weight: 800; 
-        font-size: 17px; 
-        background: linear-gradient(135deg, var(--um-maroon), var(--um-maroon-dark)); 
-        color: #ffffff; 
-        letter-spacing: 0.03em;
+    .table-history td { 
+        padding: 16px 24px; 
+        border-bottom: 1px solid #f1f5f9; 
+        vertical-align: middle; 
     }
+    .table-history tr:last-child td { border-bottom: none; }
+    .table-history tr:hover td { background-color: #f8fafc; }
 </style>
 
-<div class="dash-wrap">
-    <div class="d-flex justify-content-between align-items-center mb-5 reveal">
+<div class="dash-wrap" style="max-width: 900px; margin: 0 auto;">
+    
+    <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
-            <h2 class="dash-title m-0" style="font-size: 38px;">Election History</h2>
-            <p class="text-muted mt-2 mb-0">Review your past voting records and verified student ballots.</p>
+            <h2 class="dash-title m-0" style="font-size: 38px;">My Voting Ledger</h2>
+            <p class="text-muted mt-2 mb-0">Your secure, personal record of ballots cast in previous UM elections.</p>
         </div>
-        <div style="width: 56px; height: 56px; background: var(--um-maroon-light); color: var(--um-maroon); border-radius: 16px; display: flex; align-items: center; justify-content: center; font-size: 24px; box-shadow: 0 4px 10px rgba(138,21,56,0.1);">
-            <i class="bi bi-clock-history"></i>
-        </div>
+        <a href="{{ route('candidates.index') }}" class="btn btn-outline-secondary fw-bold rounded-pill px-4"><i class="bi bi-arrow-left me-2"></i> Dashboard</a>
     </div>
 
-    <div class="mx-auto" style="max-width: 800px;">
-        @forelse($electionHistory as $date => $votes)
-            <div class="dash-card reveal" style="transition-delay: {{ $loop->index * 0.1 }}s;">
-                <div class="dash-card-header d-flex justify-content-between align-items-center">
-                    <span>UM Student Council Election</span>
-                    <span class="badge" style="background: var(--um-gold); color: #0f172a; font-family: 'DM Sans'; font-weight: 800;"><i class="bi bi-calendar-event-fill me-1"></i> {{ $date }}</span>
-                </div>
-                <div class="p-4" style="background: #f8fafc;">
-                    <h6 class="fw-bold mb-4" style="color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; font-size: 13px;">Your Official Selections:</h6>
-                    
-                    <div class="row g-3">
-                        @foreach($votes as $vote)
-                            <div class="col-md-6">
-                                <div class="p-3 bg-white border rounded d-flex align-items-center" style="border-color: #e2e8f0 !important; box-shadow: 0 2px 5px rgba(0,0,0,0.02);">
-                                    <div style="width: 40px; height: 40px; background: #f1f5f9; border-radius: 50%; display: flex; align-items: center; justify-content: center; color: #94a3b8; margin-right: 15px;">
-                                        <i class="bi bi-person-fill"></i>
-                                    </div>
-                                    <div>
-                                        <span style="font-size: 11px; color: var(--um-maroon); font-weight: 800; text-transform: uppercase; display: block; margin-bottom: 2px;">{{ $vote->candidate->position->position_name }}</span>
-                                        <span style="font-family: 'Bricolage Grotesque'; font-weight: 700; color: var(--text-dark); font-size: 16px;">{{ $vote->candidate->candidate_name }}</span>
-                                    </div>
-                                </div>
-                            </div>
-                        @endforeach
+    @if($electionHistory->isEmpty())
+        <div class="text-center p-5 mx-auto" style="margin-top: 50px; background: white; border-radius: 20px; border: 2px dashed #cbd5e1;">
+            <div style="font-size: 50px; color: #94a3b8; margin-bottom: 15px;"><i class="bi bi-inbox"></i></div>
+            <h3 class="dash-title fs-4">No Voting History</h3>
+            <p class="text-muted">You have not participated in any recorded elections yet.</p>
+        </div>
+    @else
+        @foreach($electionHistory as $date => $votes)
+            <div class="dash-card">
+                <div class="ledger-header">
+                    <div class="d-flex align-items-center gap-3">
+                        <div style="width: 40px; height: 40px; background: #ecfdf5; color: #10b981; border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 18px;">
+                            <i class="bi bi-check2-circle"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 11px; font-weight: 800; color: #64748b; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 2px;">Ballot Officially Sealed</div>
+                            <h4 class="m-0" style="font-family: 'Bricolage Grotesque'; font-size: 18px; color: var(--text-dark);">{{ $date }}</h4>
+                        </div>
                     </div>
+                    <span class="badge bg-white text-dark border px-3 py-2 rounded-pill shadow-sm">
+                        <i class="bi bi-clock-history me-1"></i> {{ $votes->first()->created_at->format('h:i A') }}
+                    </span>
+                </div>
+
+                <div class="table-responsive bg-white">
+                    <table class="table table-borderless table-history m-0 w-100">
+                        <thead>
+                            <tr>
+                                <th style="width: 25%;">Position</th>
+                                <th style="width: 35%;">Candidate Selected</th>
+                                <th style="width: 25%;">Partylist</th>
+                                <th class="text-end" style="width: 15%;">Status</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($votes as $vote)
+                                <tr>
+                                    <td>
+                                        <span class="fw-bold" style="color: #475569; font-size: 13px;">{{ $vote->candidate->position->position_name }}</span>
+                                    </td>
+                                    <td>
+                                        <div class="d-flex align-items-center">
+                                            <div style="width: 28px; height: 28px; background: #f1f5f9; color: #64748b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 12px; margin-right: 12px; flex-shrink: 0;">
+                                                <i class="bi bi-person-fill"></i>
+                                            </div>
+                                            <span class="fw-bold" style="color: var(--text-dark); font-size: 15px;">{{ $vote->candidate->candidate_name }}</span>
+                                        </div>
+                                    </td>
+                                    <td>
+                                        <span class="badge" style="background: var(--um-maroon-light); color: var(--um-maroon); font-size: 11px; border: 1px solid #fbcfe8; padding: 6px 10px; font-weight: 700; text-transform: uppercase;">
+                                            {{ $vote->candidate->partylist ?? 'Independent' }}
+                                        </span>
+                                    </td>
+                                    <td class="text-end">
+                                        <i class="bi bi-shield-lock-fill" style="color: #10b981; font-size: 16px;" title="Vote Encrypted and Secured"></i>
+                                    </td>
+                                </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
                 </div>
             </div>
-        @empty
-            <div class="dash-card reveal text-center p-5 mt-4" style="border-top: 6px solid #94a3b8;">
-                <div style="width: 80px; height: 80px; background: #f1f5f9; color: #64748b; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 35px; margin: 0 auto 20px;"><i class="bi bi-inbox"></i></div>
-                <h3 class="dash-title">No History Found</h3>
-                <p class="text-muted">You have not participated in any UM elections yet. Your future ballots will appear here.</p>
-            </div>
-        @endforelse
-    </div>
+        @endforeach
+    @endif
 </div>
-
-<script>
-    document.addEventListener("DOMContentLoaded", function() {
-        const reveals = document.querySelectorAll(".reveal");
-        const observer = new IntersectionObserver((entries) => {
-            entries.forEach(entry => { if (entry.isIntersecting) entry.target.classList.add("active"); });
-        }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
-        reveals.forEach(reveal => observer.observe(reveal));
-    });
-</script>
 @endsection

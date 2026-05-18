@@ -14,6 +14,12 @@
         50% { transform: translate(-50%, 4px); }
     }
     .arrow-bounce { animation: subtle-bounce 2s infinite ease-in-out; }
+    @keyframes pulse-red {
+        0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.7); }
+        70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(239, 68, 68, 0); }
+        100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(239, 68, 68, 0); }
+    }
+    .live-indicator { display: inline-block; width: 8px; height: 8px; background: #ef4444; border-radius: 50%; margin-right: 6px; animation: pulse-red 2s infinite; }
     
     /* Crisp White Cards */
     .dash-card { 
@@ -57,19 +63,26 @@
     .ballot-check input[type="radio"]:checked + .custom-radio { border-color: var(--um-maroon); background: var(--um-maroon); box-shadow: 0 0 0 5px rgba(138,21,56, 0.15); }
     .ballot-check input[type="radio"]:checked + .custom-radio::after { content: ''; width: 10px; height: 10px; background: var(--um-gold); border-radius: 50%; }
     .ballot-check:has(input[type="radio"]:checked) { border-color: var(--um-maroon); background: var(--um-maroon-light); }
+
+    /* NEW: Compact Ballot UI */
+    .ballot-check-compact { display: flex; align-items: center; padding: 12px 16px; border: 2px solid #e2e8f0; border-radius: 12px; cursor: pointer; transition: all 0.2s; background: #f8fafc; }
+    .ballot-check-compact:hover { border-color: var(--um-maroon); background: #ffffff; box-shadow: 0 4px 10px rgba(138,21,56,0.05); }
+    .ballot-check-compact input[type="radio"] { display: none; }
+    .custom-radio-small { width: 22px; height: 22px; border: 2px solid #94a3b8; border-radius: 50%; display: flex; align-items: center; justify-content: center; transition: all 0.2s; background: white; flex-shrink: 0;}
+    .ballot-check-compact input[type="radio"]:checked + .custom-radio-small { border-color: var(--um-maroon); background: var(--um-maroon); box-shadow: 0 0 0 3px rgba(138,21,56, 0.15); }
+    .ballot-check-compact input[type="radio"]:checked + .custom-radio-small::after { content: ''; width: 8px; height: 8px; background: var(--um-gold); border-radius: 50%; }
+    .ballot-check-compact:has(input[type="radio"]:checked) { border-color: var(--um-maroon); background: var(--um-maroon-light); }
+
 </style>
 
 @php
-    $election = \App\Models\Election::first();
-    $electionStatus = $election ? $election->status : 'pending';
+    $electionStatus = isset($election) ? $election->status : 'pending';
     
-    // 7-Day Timer Logic
     $isWithinWeek = false;
     if ($electionStatus === 'published' && isset($election)) {
         $isWithinWeek = \Carbon\Carbon::parse($election->updated_at)->addDays(7)->isFuture();
     }
 
-    // Safety fallback just in case
     if (!isset($finalTally)) $finalTally = collect();
     if (!isset($maxVotesPerPosition)) $maxVotesPerPosition = [];
 @endphp
@@ -77,11 +90,17 @@
 <div class="dash-wrap">
 
     @if(auth()->user()->role_id === 1)
-        <div class="d-flex justify-content-between align-items-center mb-4 reveal">
+        <div class="d-flex justify-content-between align-items-center mb-4 reveal flex-wrap gap-3">
             <h2 class="dash-title m-0" style="font-size: 38px;">Admin Workspace</h2>
-            <span class="badge px-4 py-2 fs-6 rounded-pill" style="background: {{ $electionStatus == 'active' ? '#10b981' : ($electionStatus == 'closed' || $electionStatus == 'certified' ? '#f59e0b' : '#3b82f6') }}; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
-                Status: {{ strtoupper($electionStatus) }}
-            </span>
+            <div class="d-flex align-items-center gap-3">
+                <div class="position-relative">
+                    <i class="bi bi-search position-absolute text-muted" style="top: 50%; transform: translateY(-50%); left: 15px;"></i>
+                    <input type="text" id="liveSearch" class="form-control rounded-pill ps-5 py-2" placeholder="Search candidates or partylists..." style="width: 300px; border: 2px solid #e2e8f0; font-size: 14px; box-shadow: 0 2px 10px rgba(0,0,0,0.02);">
+                </div>
+                <span class="badge px-4 py-2 fs-6 rounded-pill" style="background: {{ $electionStatus == 'active' ? '#10b981' : ($electionStatus == 'closed' || $electionStatus == 'certified' ? '#f59e0b' : '#3b82f6') }}; color: white; box-shadow: 0 4px 10px rgba(0,0,0,0.1);">
+                    Status: {{ strtoupper($electionStatus) }}
+                </span>
+            </div>
         </div>
 
         <div class="dash-card reveal mb-5 p-5 text-center">
@@ -89,59 +108,105 @@
             <h3 class="dash-title mb-3">Master System Controls</h3>
             <p class="text-muted mb-4 fs-6" style="max-width: 500px; margin: 0 auto;">Control the UM Student Council election flow. Starting the election opens the portal for students to cast their official ballots.</p>
             <div class="d-flex justify-content-center gap-4 mt-4">
-                <form action="{{ route('election.toggle') }}" method="POST">
+                <form action="{{ route('election.toggle') }}" method="POST" class="confirm-form" data-title="Start Election?" data-text="This will open the portal for students to cast their official ballots." data-btn="Yes, Start Election" data-color="#8a1538">
                     @csrf <input type="hidden" name="status" value="active">
                     <button type="submit" class="btn-dash-primary" {{ $electionStatus == 'active' || $electionStatus == 'certified' ? 'disabled style=opacity:0.5;cursor:not-allowed;' : '' }}>
                         <i class="bi bi-play-circle-fill me-2"></i> START ELECTION
                     </button>
                 </form>
-                <form action="{{ route('election.toggle') }}" method="POST">
+                
+                <form action="{{ route('election.toggle') }}" method="POST" class="confirm-form" data-title="End Election?" data-text="This will close voting and compile results for the Electoral Board." data-btn="Yes, End Election" data-color="#dc2626">
                     @csrf <input type="hidden" name="status" value="closed">
                     <button type="submit" class="btn-dash-danger" {{ $electionStatus == 'closed' || $electionStatus == 'certified' || $electionStatus == 'published' || $electionStatus == 'pending' ? 'disabled style=opacity:0.5;cursor:not-allowed;' : '' }}>
                         <i class="bi bi-stop-circle-fill me-2"></i> END ELECTION
+                    </button>
+                </form>
+                
+                <form action="{{ route('election.archive') }}" method="POST" class="confirm-form" data-title="Archive Results?" data-text="This will wipe the dashboard and move the current data to permanent archives." data-btn="Yes, Archive System" data-color="#0f172a">
+                    @csrf
+                    <button type="submit" class="btn btn-dark fw-bold" style="padding: 14px 28px; border-radius: 12px; text-transform: uppercase; letter-spacing: 0.05em; box-shadow: 0 4px 15px rgba(0,0,0,0.2);" {{ $electionStatus !== 'published' ? 'disabled style=opacity:0.5;cursor:not-allowed;' : '' }}>
+                        <i class="bi bi-archive-fill me-2"></i> ARCHIVE RESULTS
                     </button>
                 </form>
             </div>
         </div>
 
         <div class="row">
-            <div class="col-md-4">
-                <div class="dash-card reveal" style="transition-delay: 0.1s;">
-                    <div class="dash-card-header bg-gradient-maroon">Register Candidate</div>
-                    <div class="p-5 text-center">
-                        <p class="text-muted mb-4">Add new students to the official ballot.</p>
-                        <a href="{{ route('candidates.create') }}" class="btn-dash-primary w-100 text-decoration-none">Open Form <i class="bi bi-arrow-right ms-2"></i></a>
-                    </div>
-                </div>
-            </div>
-            <div class="col-md-8">
+            <div class="col-12">
                 <div class="dash-card reveal" style="transition-delay: 0.2s;">
-                    <div class="dash-card-header d-flex justify-content-between align-items-center">
-                        Official SSG Candidates
-                        <span class="badge bg-light text-muted border border-secondary" style="font-size: 11px;"><i class="bi bi-database me-1"></i> Live Database</span>
+                    <div class="dash-card-header bg-gradient-maroon d-flex justify-content-between align-items-center py-3">
+                        <div class="d-flex align-items-center gap-2 text-white">
+                            <i class="bi bi-diagram-3-fill fs-5"></i>
+                            <span class="fs-5 m-0" style="font-family: 'Bricolage Grotesque';">Official CCSG Candidates</span>
+                        </div>
+                        <a href="{{ $electionStatus === 'pending' ? route('candidates.create') : '#' }}" 
+                           class="btn btn-sm fw-bold px-3 py-2" 
+                           style="background: var(--um-gold); color: #0f172a; border-radius: 8px; {{ $electionStatus !== 'pending' ? 'opacity: 0.5; cursor: not-allowed;' : '' }}">
+                           <i class="bi bi-plus-circle-fill me-1"></i> Register Partylist
+                        </a>
                     </div>
+                    
                     <div class="table-responsive p-2">
                         <table class="table table-borderless align-middle m-0">
                             <thead>
                                 <tr style="border-bottom: 2px solid #e2e8f0; color: #64748b; font-size: 12px; text-transform: uppercase; letter-spacing: 0.1em;">
-                                    <th class="ps-4 py-3">Candidate Name</th><th>Position</th><th class="text-end pe-4">Actions</th>
+                                    <th class="ps-4 py-3" style="width: 35%;">College & Partylist</th>
+                                    <th style="width: 45%;">Candidate Name</th>
+                                    <th class="text-end pe-4" style="width: 20%;">Actions</th>
                                 </tr>
                             </thead>
                             <tbody>
-                                @forelse($electionStatus === 'pending' ? $candidates : [] as $candidate)
-                                    <tr style="border-bottom: 1px solid #f1f5f9;">
-                                        <td class="ps-4 py-3 fw-bold text-dark fs-6" style="font-family: 'Bricolage Grotesque';">{{ $candidate->candidate_name }}</td>
-                                        <td><span style="background: #f1f5f9; color: #475569; padding: 6px 12px; border-radius: 6px; font-size: 13px; font-weight: 700;">{{ $candidate->position->position_name }}</span></td>
-                                        <td class="text-end pe-4">
-                                            <form action="{{ route('candidates.destroy', $candidate->id) }}" method="POST" onsubmit="return confirm('Remove candidate from ballot?');">
-                                                @csrf @method('DELETE')
-                                                <button class="btn btn-sm" style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; border-radius: 8px; padding: 6px 12px;"><i class="bi bi-trash3-fill"></i></button>
-                                            </form>
+                                @if($electionStatus === 'pending')
+                                    @if($candidates->isEmpty())
+                                        <tr><td colspan="3" class="text-center py-5 text-muted"><i class="bi bi-inbox fs-4 d-block mb-2"></i> No candidates registered yet.</td></tr>
+                                    @else
+                                        @foreach($candidates as $positionName => $positionCandidates)
+                                            
+                                            <tr style="background: #f8fafc;">
+                                                <td colspan="3" class="fw-bold py-2 ps-4" style="color: var(--um-maroon); font-family: 'Bricolage Grotesque'; font-size: 15px; text-transform: uppercase; letter-spacing: 0.05em; border-bottom: 2px solid #e2e8f0; border-top: 1px solid #e2e8f0;">
+                                                    <i class="bi bi-person-badge-fill me-2" style="color: var(--um-gold-dark);"></i> {{ $positionName }}
+                                                </td>
+                                            </tr>
+
+                                            @foreach($positionCandidates as $candidate)
+                                                <tr style="border-bottom: 1px solid #f1f5f9;">
+                                                    <td class="ps-4 py-3">
+                                                        <div class="d-flex flex-column align-items-start gap-1">
+                                                            <span class="badge" style="background: #1e293b; color: white; font-size: 10px; letter-spacing: 0.05em;">
+                                                                <i class="bi bi-building me-1"></i> {{ $candidate->college ?? 'UM' }}
+                                                            </span>
+                                                            <span class="badge" style="background: var(--um-maroon-light); color: var(--um-maroon); border: 1px solid #fbcfe8; font-weight: 700; font-size: 11px; text-transform: uppercase;">
+                                                                <i class="bi bi-flag-fill me-1"></i> {{ $candidate->partylist ?? 'Independent' }}
+                                                            </span>
+                                                        </div>
+                                                    </td>
+                                                    <td class="fw-bold text-dark fs-6" style="font-family: 'Bricolage Grotesque';">{{ $candidate->candidate_name }}</td>
+                                                    <td class="text-end pe-4">
+                                                        <div class="d-flex justify-content-end align-items-center gap-2">
+                                                            <a href="{{ route('candidates.edit', $candidate->id) }}" class="btn btn-sm" style="background: #f0fdf4; color: #10b981; border: 1px solid #a7f3d0; border-radius: 8px; padding: 6px 12px;" title="Edit Candidate">
+                                                                <i class="bi bi-pencil-square"></i>
+                                                            </a>
+                                                            
+                                                            <form action="{{ route('candidates.destroy', $candidate->id) }}" method="POST" class="m-0 confirm-form" data-title="Remove Candidate?" data-text="This will archive this candidate record. Proceed?" data-btn="Yes, Remove" data-color="#ef4444">
+                                                                @csrf @method('DELETE')
+                                                                <button type="submit" class="btn btn-sm" style="background: #fef2f2; color: #ef4444; border: 1px solid #fecaca; border-radius: 8px; padding: 6px 12px;" title="Delete Candidate">
+                                                                    <i class="bi bi-trash3-fill"></i>
+                                                                </button>
+                                                            </form>
+                                                        </div>
+                                                    </td>
+                                                </tr>
+                                            @endforeach
+                                        @endforeach
+                                    @endif
+                                @else
+                                    <tr>
+                                        <td colspan="3" class="text-center py-5 text-muted" style="background: #f8fafc; border-radius: 12px;">
+                                            <i class="bi bi-shield-lock-fill fs-3 d-block mb-2 text-warning"></i> 
+                                            The candidate list is securely hidden while the election is <strong>{{ strtoupper($electionStatus) }}</strong>.
                                         </td>
                                     </tr>
-                                @empty
-                                    <tr><td colspan="3" class="text-center py-5 text-muted"><i class="bi bi-inbox fs-4 d-block mb-2"></i> No candidates currently available.</td></tr>
-                                @endforelse
+                                @endif
                             </tbody>
                         </table>
                     </div>
@@ -222,39 +287,53 @@
                     <span style="background: white; color: var(--um-maroon); padding: 8px 20px; border-radius: 50px; font-weight: 800; font-size: 12px; letter-spacing: 0.15em; text-transform: uppercase; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 1px solid #e2e8f0;">Secure Submission</span>
                     <h2 class="dash-title mt-4" style="font-size: 42px;">Student Council Ballot</h2>
                     <p class="text-muted fs-6 mt-2">Review the candidates carefully. You MUST select a candidate for every position.</p>
+                    
+                    <div class="position-relative mx-auto mt-4" style="max-width: 400px;">
+                        <i class="bi bi-search position-absolute text-muted" style="top: 50%; transform: translateY(-50%); left: 16px;"></i>
+                        <input type="text" id="liveSearch" class="form-control rounded-pill ps-5 py-3 shadow-sm border-0" placeholder="Search for a specific candidate..." style="font-size: 15px; font-weight: 500;">
+                    </div>
                 </div>
 
-                <div class="mx-auto" style="max-width: 800px;">
+                <div class="mx-auto" style="max-width: 1000px;">
                     <form id="votingForm" action="{{ route('vote.store') }}" method="POST">
                         @csrf
-                        @foreach($groupedCandidates as $positionName => $candidates)
-                            <div class="dash-card mb-5 reveal" style="transition-delay: {{ $loop->index * 0.1 }}s;">
-                                <div class="dash-card-header bg-gradient-maroon d-flex justify-content-between align-items-center">
-                                    <span>{{ $positionName }}</span>
-                                    <span style="font-size: 11px; background: rgba(255,255,255,0.2); color: white; padding: 6px 12px; border-radius: 8px; text-transform: uppercase; font-family: 'DM Sans'; font-weight: 700;">Select 1</span>
+                        
+                        <div class="row g-4">
+                            @foreach($groupedCandidates as $positionName => $candidates)
+                                <div class="col-md-6">
+                                    <div class="dash-card h-100 mb-0 reveal" style="transition-delay: {{ $loop->index * 0.05 }}s;">
+                                        
+                                        <div class="dash-card-header bg-gradient-maroon d-flex justify-content-between align-items-center py-2 px-3">
+                                            <span style="font-size: 15px;">{{ $positionName }}</span>
+                                            <span style="font-size: 10px; background: rgba(255,255,255,0.2); color: white; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; font-family: 'DM Sans'; font-weight: 700;">Select 1</span>
+                                        </div>
+                                        
+                                        <div class="p-3" style="background: #ffffff;">
+                                            @foreach($candidates as $candidate)
+                                                <label class="ballot-check-compact w-100 mb-2" for="cand_{{ $candidate->id }}">
+                                                    <input type="radio" name="votes[{{ $candidate->position_id }}]" id="cand_{{ $candidate->id }}" value="{{ $candidate->id }}">
+                                                    <div class="custom-radio-small me-3"></div>
+                                                    
+                                                    <div class="flex-grow-1">
+                                                        <span style="font-family: 'Bricolage Grotesque'; font-weight: 700; font-size: 16px; color: var(--text-dark); display: block;">{{ $candidate->candidate_name }}</span>
+                                                        <div class="d-flex flex-wrap align-items-center gap-1 mt-1">
+                                                            <span class="badge" style="background: #1e293b; color: white; font-size: 9px; padding: 4px 6px;"><i class="bi bi-building me-1"></i>{{ $candidate->college ?? 'UM' }}</span>
+                                                            <span class="badge" style="background: var(--um-maroon-light); color: var(--um-maroon); font-size: 9px; text-transform: uppercase; border: 1px solid #fbcfe8; padding: 4px 6px;"><i class="bi bi-flag-fill me-1"></i>{{ $candidate->partylist ?? 'Independent' }}</span>
+                                                        </div>
+                                                    </div>
+                                                </label>
+                                            @endforeach
+                                        </div>
+                                        
+                                    </div>
                                 </div>
-                                <div class="p-4" style="background: #ffffff;">
-                                    @foreach($candidates as $candidate)
-                                        <label class="ballot-check w-100" for="cand_{{ $candidate->id }}">
-                                            <input type="radio" name="votes[{{ $candidate->position_id }}]" id="cand_{{ $candidate->id }}" value="{{ $candidate->id }}">
-                                            <div class="custom-radio"></div>
-                                            <div style="width: 60px; height: 60px; background: #f1f5f9; border: 2px solid #e2e8f0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 24px; color: #94a3b8; flex-shrink: 0; margin-right: 20px;">
-                                                <i class="bi bi-person-fill"></i>
-                                            </div>
-                                            <div>
-                                                <span style="font-family: 'Bricolage Grotesque'; font-weight: 800; font-size: 20px; color: var(--text-dark); display: block; margin-bottom: 6px;">{{ $candidate->candidate_name }}</span>
-                                                <span style="color: #64748b; font-size: 14px; line-height: 1.6;">{{ $candidate->platform_description }}</span>
-                                            </div>
-                                        </label>
-                                    @endforeach
-                                </div>
-                            </div>
-                        @endforeach
+                            @endforeach
+                        </div>
                         
                         <div class="dash-card p-5 text-center mt-5 reveal" style="background: #f8fafc; border: 2px dashed #cbd5e1;">
                             <h3 class="dash-title mb-3" style="font-size: 26px;">Ready to seal your ballot?</h3>
                             <p class="text-muted mb-4" style="max-width: 450px; margin: 0 auto;">By clicking submit, you confirm your choices. Your identity will be permanently detached from this ballot for total anonymity.</p>
-                            <button type="button" onclick="confirmVote()" class="btn-dash-primary w-100 py-3" style="font-size: 16px; max-width: 400px; box-shadow: 0 10px 25px rgba(138,21,56,0.3);">Submit Official Ballot <i class="bi bi-shield-lock-fill ms-2"></i></button>
+                            <button type="button" onclick="confirmVote()" class="btn-dash-primary w-100 py-3" style="font-size: 16px; max-width: 400px; box-shadow: 0 10px 25px rgba(138,21,56,0.3);">Review & Submit Ballot <i class="bi bi-shield-lock-fill ms-2"></i></button>
                         </div>
                     </form>
                 </div>
@@ -287,32 +366,66 @@
                 @endif
 
                 <div class="d-flex justify-content-between align-items-center mb-4 reveal">
-                    <h4 class="dash-title m-0">Live Election Tally</h4>
-                    <span class="badge" style="background: var(--um-maroon-light); color: var(--um-maroon); font-size: 12px; padding: 6px 12px;"><i class="bi bi-broadcast me-1"></i> Real-Time Updates</span>
+                    <h4 class="dash-title m-0" style="font-size: 28px;">Live Election Tally</h4>
+                    <span class="badge" style="background: white; color: var(--text-dark); border: 1px solid #cbd5e1; font-size: 12px; padding: 8px 14px; box-shadow: 0 4px 10px rgba(0,0,0,0.05);">
+                        <span class="live-indicator"></span> Real-Time Broadcast
+                    </span>
                 </div>
                 
                 <div class="row mb-5">
                     @foreach($tally as $positionName => $positionCandidates)
                         <div class="col-lg-6 col-xl-4 mb-4">
-                            <div class="dash-card reveal m-0" style="transition-delay: {{ $loop->index * 0.1 }}s;">
-                                <div class="dash-card-header bg-gradient-maroon text-center fs-6 py-3">{{ $positionName }}</div>
+                            <div class="dash-card reveal m-0 h-100" style="transition-delay: {{ $loop->index * 0.1 }}s; border-top: 4px solid var(--um-maroon);">
+                                <div class="text-center py-3" style="background: #f8fafc; border-bottom: 1px solid #e2e8f0;">
+                                    <h5 class="m-0" style="font-family: 'Bricolage Grotesque'; font-weight: 800; color: var(--um-maroon-dark); text-transform: uppercase; letter-spacing: 0.05em; font-size: 16px;">{{ $positionName }}</h5>
+                                </div>
+                                
                                 <div class="p-3 bg-white">
-                                    @foreach($positionCandidates->sortByDesc('votes_count') as $index => $candidate)
-                                        <div class="d-flex align-items-center p-2 mb-2 rounded" style="background: {{ $index === 0 ? '#fdf2f5' : '#f8fafc' }}; border: 1px solid {{ $index === 0 ? '#fbcfe8' : '#e2e8f0' }};">
-                                            <div class="fw-bold me-2 text-muted" style="font-size: 14px; width: 15px;">#{{ $index + 1 }}</div>
-                                            <div style="width: 35px; height: 35px; background: white; border: 2px solid {{ $index === 0 ? 'var(--um-maroon)' : '#cbd5e1' }}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 16px; color: #94a3b8; flex-shrink: 0; overflow: hidden; box-shadow: 0 2px 5px rgba(0,0,0,0.05);">
-                                                <i class="bi bi-person-fill"></i>
-                                            </div>
-                                            <div class="ms-2 flex-grow-1">
-                                                <span class="fw-bold text-dark d-block" style="font-family: 'Bricolage Grotesque'; font-size: 14px; line-height: 1.1;">{{ $candidate->candidate_name }}</span>
-                                                @if($index === 0)
-                                                    <span style="color: var(--um-gold-dark); font-size: 9px; font-weight: 800;"><i class="bi bi-star-fill me-1"></i>LEADER</span>
-                                                @endif
-                                            </div>
-                                            <div class="text-end ms-2">
-                                                <span style="background: {{ $index === 0 ? 'var(--um-maroon)' : '#475569' }}; color: white; padding: 4px 10px; border-radius: 8px; font-weight: 800; font-size: 13px;">
-                                                    {{ $candidate->votes_count }}
-                                                </span>
+                                    @php 
+                                        // Find the highest votes in this specific position to calculate the progress bars
+                                        $maxVotes = $positionCandidates->max('votes_count');
+                                        $maxVotes = $maxVotes > 0 ? $maxVotes : 1; 
+                                    @endphp
+
+                                    @foreach($positionCandidates->sortByDesc('votes_count')->values() as $index => $candidate)
+                                        @php 
+                                            $isLeader = $index === 0 && $candidate->votes_count > 0; 
+                                            $percentage = ($candidate->votes_count / $maxVotes) * 100;
+                                        @endphp
+                                        
+                                        <div class="position-relative p-3 mb-3 rounded" style="background: {{ $isLeader ? '#fffbeb' : '#f8fafc' }}; border: 1px solid {{ $isLeader ? 'var(--um-gold)' : '#e2e8f0' }}; overflow: hidden; box-shadow: {{ $isLeader ? '0 4px 12px rgba(217, 119, 6, 0.15)' : 'none' }}; transition: all 0.3s;">
+                                            
+                                            <div style="position: absolute; top: 0; left: 0; height: 100%; width: {{ $percentage }}%; background: {{ $isLeader ? 'rgba(253, 184, 19, 0.15)' : 'rgba(138, 21, 56, 0.04)' }}; z-index: 0; transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);"></div>
+                                            
+                                            <div class="d-flex align-items-center position-relative" style="z-index: 1;">
+                                                <div class="fw-bold text-center me-3" style="width: 24px; color: {{ $isLeader ? 'var(--um-gold-dark)' : '#94a3b8' }}; font-size: {{ $isLeader ? '20px' : '15px' }};">
+                                                    @if($isLeader)
+                                                        <i class="bi bi-trophy-fill drop-shadow"></i>
+                                                    @else
+                                                        #{{ $index + 1 }}
+                                                    @endif
+                                                </div>
+                                                
+                                                <div class="flex-grow-1">
+                                                    <span class="fw-bold text-dark d-block mb-1" style="font-family: 'Bricolage Grotesque'; font-size: 16px;">{{ $candidate->candidate_name }}</span>
+                                                    <div class="d-flex flex-wrap gap-1">
+                                                        <span class="badge" style="background: #1e293b; color: white; font-size: 9px; padding: 4px 6px;">
+                                                            {{ $candidate->college ?? 'UM' }}
+                                                        </span>
+                                                        <span class="badge" style="background: {{ $isLeader ? 'var(--um-gold)' : 'var(--um-maroon-light)' }}; color: {{ $isLeader ? '#0f172a' : 'var(--um-maroon)' }}; font-size: 9px; padding: 4px 6px; {{ !$isLeader ? 'border: 1px solid #fbcfe8;' : '' }}">
+                                                            {{ $candidate->partylist ?? 'IND' }}
+                                                        </span>
+                                                    </div>
+                                                </div>
+                                                
+                                                <div class="text-end ms-2">
+                                                    <div style="font-family: 'Bricolage Grotesque'; font-weight: 800; font-size: 24px; color: {{ $isLeader ? 'var(--um-gold-dark)' : 'var(--text-dark)' }}; line-height: 1;">
+                                                        {{ number_format($candidate->votes_count) }}
+                                                    </div>
+                                                    <div style="font-size: 10px; font-weight: 700; color: #64748b; text-transform: uppercase; margin-top: 4px; letter-spacing: 0.05em;">
+                                                        {{ $candidate->votes_count === 1 ? 'Vote' : 'Votes' }}
+                                                    </div>
+                                                </div>
                                             </div>
                                         </div>
                                     @endforeach
@@ -322,64 +435,66 @@
                     @endforeach
                 </div>
 
-                <div class="d-flex justify-content-between align-items-center mb-4 reveal">
-                    <h4 class="dash-title m-0">Live Margin Predictions</h4>
-                    <i class="bi bi-bar-chart-line-fill text-muted fs-4"></i>
-                </div>
+                @if(auth()->user()->role_id === 2)
+                    <div class="d-flex justify-content-between align-items-center mb-4 reveal">
+                        <h4 class="dash-title m-0">Live Margin Predictions</h4>
+                        <i class="bi bi-bar-chart-line-fill text-muted fs-4"></i>
+                    </div>
 
-                <div class="row mb-5">
-                    @foreach($tally as $positionName => $positionCandidates)
-                        <div class="col-lg-6 col-xl-4 mb-4">
-                            <div class="dash-card reveal p-4 m-0" style="transition-delay: {{ $loop->index * 0.1 }}s; display: flex; flex-direction: column;">
-                                <h6 class="text-center fw-bold mb-4" style="color: var(--text-dark); text-transform: uppercase;">{{ $positionName }} Race</h6>
-                                <div style="position: relative; flex-grow: 1; width: 100%; min-height: 250px;">
-                                    <canvas id="chart_{{ $loop->index }}"></canvas>
+                    <div class="row mb-5">
+                        @foreach($tally as $positionName => $positionCandidates)
+                            <div class="col-lg-6 col-xl-4 mb-4">
+                                <div class="dash-card reveal p-4 m-0" style="transition-delay: {{ $loop->index * 0.1 }}s; display: flex; flex-direction: column;">
+                                    <h6 class="text-center fw-bold mb-4" style="color: var(--text-dark); text-transform: uppercase;">{{ $positionName }} Race</h6>
+                                    <div style="position: relative; flex-grow: 1; width: 100%; min-height: 250px;">
+                                        <canvas id="liveChart_{{ $loop->index }}"></canvas>
+                                    </div>
                                 </div>
                             </div>
-                        </div>
-                    @endforeach
-                </div>
-
-                <script>
-                    document.addEventListener("DOMContentLoaded", function() {
-                        @foreach($tally as $positionName => $positionCandidates)
-                            (function() {
-                                const ctx = document.getElementById('chart_{{ $loop->index }}').getContext('2d');
-                                const labels = {!! json_encode($positionCandidates->pluck('candidate_name')) !!};
-                                const data = {!! json_encode($positionCandidates->pluck('votes_count')) !!};
-
-                                new Chart(ctx, {
-                                    type: 'bar',
-                                    data: {
-                                        labels: labels,
-                                        datasets: [{
-                                            label: 'Votes',
-                                            data: data,
-                                            backgroundColor: '#8a1538',
-                                            borderColor: '#5c0d24',
-                                            borderWidth: 1,
-                                            borderRadius: 4,
-                                            hoverBackgroundColor: '#fdb813'
-                                        }]
-                                    },
-                                    options: { 
-                                        responsive: true, 
-                                        maintainAspectRatio: false,
-                                        scales: { 
-                                            y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
-                                            x: { 
-                                                grid: { display: false }, 
-                                                ticks: { display: true, font: { family: 'DM Sans', size: 10 }, color: '#475569', maxRotation: 45, minRotation: 0 } 
-                                            } 
-                                        },
-                                        plugins: { legend: { display: false } }
-                                    }
-                                });
-                            })();
                         @endforeach
-                    });
-                </script>
-            @endif
+                    </div>
+
+                    <script>
+                        document.addEventListener("DOMContentLoaded", function() {
+                            @foreach($tally as $positionName => $positionCandidates)
+                                (function() {
+                                    const ctx = document.getElementById('liveChart_{{ $loop->index }}').getContext('2d');
+                                    const labels = {!! json_encode($positionCandidates->pluck('candidate_name')) !!};
+                                    const data = {!! json_encode($positionCandidates->pluck('votes_count')) !!};
+
+                                    new Chart(ctx, {
+                                        type: 'bar',
+                                        data: {
+                                            labels: labels,
+                                            datasets: [{
+                                                label: 'Votes',
+                                                data: data,
+                                                backgroundColor: '#8a1538',
+                                                borderColor: '#5c0d24',
+                                                borderWidth: 1,
+                                                borderRadius: 4,
+                                                hoverBackgroundColor: '#fdb813'
+                                            }]
+                                        },
+                                        options: { 
+                                            responsive: true, 
+                                            maintainAspectRatio: false,
+                                            scales: { 
+                                                y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: '#f1f5f9' } },
+                                                x: { 
+                                                    grid: { display: false }, 
+                                                    ticks: { display: true, font: { family: 'DM Sans', size: 10 }, color: '#475569', maxRotation: 45, minRotation: 0 } 
+                                                } 
+                                            },
+                                            plugins: { legend: { display: false } }
+                                        }
+                                    });
+                                })();
+                            @endforeach
+                        });
+                    </script>
+                @endif
+                @endif
 
         @elseif($electionStatus === 'published' && $isWithinWeek)
             <div class="text-center mb-5 mt-4 reveal">
@@ -393,15 +508,16 @@
                     <div class="dash-card mb-5 reveal">
                         <div class="dash-card-header bg-gradient-maroon text-center fs-5 text-uppercase" style="letter-spacing: 0.1em;">{{ $positionName }}</div>
                         <div class="p-4" style="background: white;">
-                            @foreach($positionCandidates->sortByDesc('votes_count') as $index => $candidate)
+                            @foreach($positionCandidates->sortByDesc('votes_count')->values() as $index => $candidate)
                                 @php
                                     $maxVotes = isset($maxVotesPerPosition[$positionName]) ? $maxVotesPerPosition[$positionName] : 1;
                                     $percentage = ($candidate->votes_count / $maxVotes) * 100;
                                     $isTop3 = $index < 3; 
+                                    $isWinner = $index === 0 && $candidate->votes_count > 0;
                                 @endphp
                                 
                                 <div class="d-flex align-items-center mb-4 {{ $isTop3 ? 'p-3 rounded bg-light border' : '' }}" style="{{ $isTop3 ? 'border-color: #fde68a !important;' : '' }}">
-                                    <div style="width: 32px; height: 32px; background: {{ $index === 0 ? 'var(--um-gold)' : ($isTop3 ? '#fcd34d' : 'var(--um-maroon)') }}; color: {{ $isTop3 ? '#0f172a' : 'white' }}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">
+                                    <div style="width: 32px; height: 32px; background: {{ $isWinner ? 'var(--um-gold)' : ($isTop3 ? '#fcd34d' : 'var(--um-maroon)') }}; color: {{ $isTop3 ? '#0f172a' : 'white' }}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">
                                         {{ $index + 1 }}
                                     </div>
                                     
@@ -409,17 +525,17 @@
                                         <div class="d-flex justify-content-between align-items-end mb-1">
                                             <span style="font-family: 'DM Sans'; font-size: {{ $isTop3 ? '18px' : '15px' }}; font-weight: 700; color: {{ $isTop3 ? 'var(--text-dark)' : '#475569' }};">
                                                 {{ $candidate->candidate_name }}
-                                                @if($index === 0) <i class="bi bi-star-fill text-warning ms-1" style="font-size: 12px;"></i> @endif
+                                                @if($isWinner) <i class="bi bi-star-fill text-warning ms-1" style="font-size: 12px;"></i> @endif
                                             </span>
                                         </div>
                                         <div style="width: 100%; height: {{ $isTop3 ? '10px' : '6px' }}; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 6px;">
-                                            <div style="height: 100%; background: {{ $index === 0 ? 'var(--um-gold)' : 'var(--um-maroon)' }}; border-radius: 4px; width: {{ $percentage }}%;"></div>
+                                            <div style="height: 100%; background: {{ $isWinner ? 'var(--um-gold)' : 'var(--um-maroon)' }}; border-radius: 4px; width: {{ $percentage }}%;"></div>
                                         </div>
                                     </div>
 
                                     <div class="text-end" style="min-width: 80px;">
-                                        <div style="font-family: 'Bricolage Grotesque'; font-weight: 800; font-size: {{ $isTop3 ? '22px' : '16px' }}; color: var(--text-dark);">
-                                            {{ number_format($candidate->votes_count) }}
+                                        <div style="font-family: 'Bricolage Grotesque'; font-weight: 800; font-size: {{ $isTop3 ? '22px' : '16px' }}; color: var(--text-dark); white-space: nowrap;">
+                                            {{ number_format($candidate->votes_count) }} <span style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">{{ $candidate->votes_count === 1 ? 'Vote' : 'Votes' }}</span>
                                         </div>
                                     </div>
                                 </div>
@@ -449,6 +565,7 @@
                 </p>
             </div>
         @endif
+        
     @endif
 </div>
 
@@ -460,27 +577,112 @@
         }, { threshold: 0.1, rootMargin: "0px 0px -50px 0px" });
         reveals.forEach(reveal => observer.observe(reveal));
         
-        @if(session('error')) Swal.fire('Incomplete Ballot!', "{{ session('error') }}", 'error'); @endif
+        @if(session('error')) Swal.fire('Oops!', "{{ session('error') }}", 'error'); @endif
         @if(session('voted_success')) Swal.fire({ title: 'Success!', text: "{{ session('voted_success') }}", icon: 'success', confirmButtonColor: '#8a1538' }); @endif
         @if(session('success') && !session('voted_success')) Swal.fire('Updated', "{{ session('success') }}", 'success'); @endif
     });
 </script>
 
 <script>
+    // Beautiful SweetAlert replacements for default browser confirms
+    // Beautiful SweetAlert replacements for default browser confirms
     function confirmVote() {
+        // 1. Error Trapping: Gather all radio button groups
+        const allRadioGroups = new Set([...document.querySelectorAll('#votingForm input[type="radio"]')].map(r => r.name));
+        const selectedRadios = document.querySelectorAll('#votingForm input[type="radio"]:checked');
+
+        // Check if the user missed any positions
+        if (selectedRadios.length < allRadioGroups.size) {
+            Swal.fire({
+                title: 'Incomplete Ballot!',
+                text: "You must select a candidate for every position before submitting your official ballot.",
+                icon: 'error',
+                confirmButtonColor: '#8a1538'
+            });
+            return; // Stop the submission process
+        }
+
+        // 2. Build the UM-Style Summary Table dynamically
+        let summaryHTML = `
+            <div style="text-align: left; margin-top: 10px;">
+                <div style="font-size: 11px; font-weight: 800; color: #94a3b8; text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 15px; border-bottom: 2px solid #e2e8f0; padding-bottom: 8px;">Your Verified Selections</div>
+                <table style="width: 100%; border-collapse: collapse; font-family: 'DM Sans', sans-serif;">
+                    <tbody>
+        `;
+
+        selectedRadios.forEach(radio => {
+            const label = radio.closest('label');
+            
+            // FIX: We now look for the custom font name instead of the font size!
+            const candidateName = label.querySelector('span[style*="Bricolage Grotesque"]').innerText;
+            const positionName = radio.closest('.dash-card').querySelector('.dash-card-header span:first-child').innerText;
+
+            summaryHTML += `
+                        <tr style="border-bottom: 1px solid #f1f5f9;">
+                            <td style="padding: 12px 0; color: #64748b; font-size: 12px; text-transform: uppercase; font-weight: 700; width: 45%;">${positionName}</td>
+                            <td style="padding: 12px 0; color: var(--um-maroon); font-size: 16px; font-weight: bold; font-family: 'Bricolage Grotesque';">${candidateName}</td>
+                        </tr>
+            `;
+        });
+
+        summaryHTML += `
+                    </tbody>
+                </table>
+                <div style="margin-top: 20px; font-size: 13px; color: #ef4444; background: #fef2f2; padding: 12px 16px; border-radius: 8px; border: 1px dashed #fecaca; display: flex; align-items: center; gap: 10px;">
+                    <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+                    <span style="font-weight: 600;">Warning: You cannot change or edit your vote once it is sealed and submitted to the server.</span>
+                </div>
+            </div>
+        `;
+
+        // 3. Display the beautifully styled Pre-Submission Modal
         Swal.fire({
-            title: 'Are you sure?',
-            text: "You cannot change your vote after submitting your student ballot!",
-            icon: 'warning',
+            title: '<span style="font-family: \'Bricolage Grotesque\'; font-weight: 800; font-size: 28px; color: var(--text-dark);">Review Your Ballot</span>',
+            html: summaryHTML,
             showCancelButton: true,
             confirmButtonColor: '#8a1538', 
             cancelButtonColor: '#64748b',
-            confirmButtonText: 'Yes, submit my ballot!'
+            confirmButtonText: 'Submit Final Ballot <i class="bi bi-shield-lock-fill ms-2"></i>',
+            cancelButtonText: 'Back to Editing',
+            width: '600px', 
+            customClass: {
+                popup: 'rounded-4 shadow-lg'
+            }
         }).then((result) => {
             if (result.isConfirmed) {
+                // Submit the form to the backend
                 document.getElementById('votingForm').submit();
             }
         })
     }
+</script>
+
+<script>
+    // Real-time Search Engine
+    document.addEventListener("DOMContentLoaded", function() {
+        const searchInput = document.getElementById('liveSearch');
+        if(searchInput) {
+            searchInput.addEventListener('keyup', function(e) {
+                const term = e.target.value.toLowerCase();
+                
+                // For Admin Table Rows
+                const tableRows = document.querySelectorAll('tbody tr');
+                tableRows.forEach(row => {
+                    // Don't filter the position headers or empty states
+                    if(row.cells.length > 1 && !row.hasAttribute('colspan')) {
+                        const text = row.innerText.toLowerCase();
+                        row.style.display = text.includes(term) ? '' : 'none';
+                    }
+                });
+
+                // For Voter Ballot Cards
+                const ballotCards = document.querySelectorAll('.ballot-check-compact');
+                ballotCards.forEach(card => {
+                    const text = card.innerText.toLowerCase();
+                    card.style.display = text.includes(term) ? '' : 'none';
+                });
+            });
+        }
+    });
 </script>
 @endsection
