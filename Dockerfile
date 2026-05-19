@@ -111,5 +111,9 @@ RUN php artisan migrate --force || true
 EXPOSE 10000
 
 # Start Apache
+<<<<<<< HEAD:DockerFile
 
 CMD ["apache2-foreground"]
+=======
+CMD ["apache2-foreground"]
+>>>>>>> 97932980eb242b542db8f1fb3537fcbd196816a0:Dockerfile
