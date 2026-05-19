@@ -497,53 +497,340 @@
                 @endif
 
         @elseif($electionStatus === 'published' && $isWithinWeek)
-            <div class="text-center mb-5 mt-4 reveal">
-                <div style="font-size: 50px; color: var(--um-gold);"><i class="bi bi-trophy-fill"></i></div>
-                <h2 class="dash-title mt-2" style="font-size: 42px;">Official Election Results</h2>
-                <p class="text-muted fs-6 mt-2">The Electoral Board has certified and published the final standings.</p>
+
+        {{-- ═══════════════════════════════════════════════════════
+             PUBLISHED RESULTS — Tabbed UI (no endless scrolling)
+        ═══════════════════════════════════════════════════════ --}}
+        <style>
+            /* ── Results page styles ─────────────────────────────── */
+            .results-hero {
+                background: linear-gradient(135deg, var(--um-maroon), var(--um-maroon-dark));
+                border-radius: 20px; padding: 32px 28px 24px;
+                margin-bottom: 28px; position: relative; overflow: hidden;
+            }
+            .results-hero::before {
+                content:''; position:absolute; top:-40px; right:-40px;
+                width:200px; height:200px; background:rgba(253,184,19,.1); border-radius:50%;
+            }
+            .results-hero::after {
+                content:''; position:absolute; bottom:-60px; left:-30px;
+                width:250px; height:250px; background:rgba(255,255,255,.04); border-radius:50%;
+            }
+
+            /* Winner podium cards */
+            .winners-grid {
+                display: grid;
+                grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+                gap: 12px;
+                margin-bottom: 28px;
+            }
+            .winner-chip {
+                background: var(--bg-surface);
+                border: 1.5px solid var(--border-col);
+                border-radius: 14px; padding: 14px 16px;
+                display: flex; align-items: center; gap: 12px;
+                transition: all .2s; cursor: default;
+                position: relative; overflow: hidden;
+            }
+            .winner-chip::before {
+                content:''; position:absolute; left:0; top:0; bottom:0;
+                width:4px; background: var(--um-gold); border-radius:4px 0 0 4px;
+            }
+            .winner-chip:hover { transform:translateY(-2px); box-shadow: 0 6px 18px rgba(138,21,56,.1); border-color: var(--um-gold); }
+            .winner-avatar {
+                width:40px; height:40px; border-radius:50%;
+                background: linear-gradient(135deg,var(--um-maroon),var(--um-maroon-dark));
+                color: var(--um-gold); display:flex; align-items:center; justify-content:center;
+                font-size:16px; flex-shrink:0;
+            }
+
+            /* Position tabs */
+            .pos-tabs-wrap {
+                background: var(--bg-surface);
+                border: 1px solid var(--border-col);
+                border-radius: 16px; overflow: hidden;
+                margin-bottom: 0;
+            }
+            .pos-tabs-header {
+                display: flex; overflow-x: auto; gap: 0;
+                background: var(--bg-surface-alt);
+                border-bottom: 2px solid var(--border-col);
+                padding: 0 4px;
+                scrollbar-width: thin;
+                -webkit-overflow-scrolling: touch;
+            }
+            .pos-tabs-header::-webkit-scrollbar { height: 3px; }
+            .pos-tab-btn {
+                padding: 13px 18px; font-size: 13px; font-weight: 700;
+                color: var(--text-muted); background: transparent; border: none;
+                border-bottom: 3px solid transparent; cursor: pointer;
+                white-space: nowrap; transition: all .2s; font-family:'DM Sans',sans-serif;
+                margin-bottom: -2px; flex-shrink: 0;
+            }
+            .pos-tab-btn:hover  { color: var(--um-maroon); background: var(--um-maroon-light); }
+            .pos-tab-btn.active { color: var(--um-maroon); border-bottom-color: var(--um-maroon); background: var(--bg-surface); font-weight:800; }
+
+            /* Tab panels */
+            .pos-tab-panel { display: none; padding: 24px; }
+            .pos-tab-panel.active { display: block; }
+
+            /* Candidate result row */
+            .result-row {
+                display: flex; align-items: center; gap: 14px;
+                padding: 14px 18px; border-radius: 12px;
+                margin-bottom: 10px; position: relative; overflow: hidden;
+                border: 1.5px solid var(--border-col);
+                background: var(--bg-surface);
+                transition: all .2s;
+            }
+            .result-row.winner {
+                border-color: var(--um-gold) !important;
+                background: #fffbeb;
+            }
+            [data-theme="dark"] .result-row.winner { background: #2a1f00; }
+            .result-row:hover { transform: translateX(4px); }
+
+            /* Animated fill bar behind row */
+            .result-row-fill {
+                position: absolute; left:0; top:0; bottom:0;
+                background: rgba(138,21,56,.05);
+                border-radius: 10px; transition: width 1.2s cubic-bezier(.4,0,.2,1);
+                z-index: 0;
+            }
+            .result-row.winner .result-row-fill { background: rgba(253,184,19,.12); }
+            .result-row > * { position: relative; z-index: 1; }
+
+            .rank-badge {
+                width: 30px; height: 30px; border-radius: 50%;
+                display: flex; align-items:center; justify-content:center;
+                font-weight:800; font-size:13px; flex-shrink:0;
+            }
+            .rank-1 { background: var(--um-gold); color:#0f172a; }
+            .rank-2 { background: #e2e8f0; color:#475569; }
+            .rank-3 { background: #fde68a; color:#92400e; }
+            .rank-n { background: var(--bg-surface-alt); color:var(--text-muted); border:1px solid var(--border-col); }
+
+            /* Responsive */
+            @media (max-width: 600px) {
+                .winners-grid { grid-template-columns: 1fr 1fr; }
+                .pos-tab-btn { padding: 11px 12px; font-size:12px; }
+                .result-row  { padding: 12px 14px; gap: 10px; }
+                .results-hero { padding: 22px 18px 18px; }
+            }
+            @media (max-width: 380px) {
+                .winners-grid { grid-template-columns: 1fr; }
+            }
+        </style>
+
+        {{-- Hero banner --}}
+        <div class="results-hero reveal">
+            <div style="position:relative;z-index:1;">
+                <div class="d-flex align-items-center gap-3 flex-wrap mb-3">
+                    <div style="width:50px;height:50px;background:rgba(253,184,19,.2);border:2px solid rgba(253,184,19,.4);border-radius:14px;display:flex;align-items:center;justify-content:center;font-size:22px;color:var(--um-gold);">
+                        <i class="bi bi-trophy-fill"></i>
+                    </div>
+                    <div>
+                        <div style="font-size:11px;font-weight:800;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:.1em;">University of Mindanao</div>
+                        <h2 style="font-family:'Bricolage Grotesque';font-weight:800;color:white;font-size:clamp(22px,4vw,36px);margin:0;letter-spacing:-0.02em;">Official Election Results</h2>
+                    </div>
+                </div>
+                <p style="color:rgba(255,255,255,.7);font-size:14px;margin:0;">
+                    Certified and published by the Electoral Board. Browse winners by position using the tabs below.
+                </p>
             </div>
+        </div>
 
-            <div class="mx-auto" style="max-width: 900px;">
+        {{-- Winner Podium Grid --}}
+        <div class="mb-3 reveal" style="transition-delay:.1s;">
+            <div style="font-size:11px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.1em;margin-bottom:12px;">
+                <i class="bi bi-star-fill me-1" style="color:var(--um-gold);"></i> Elected Officials at a Glance
+            </div>
+            <div class="winners-grid">
                 @foreach($finalTally as $positionName => $positionCandidates)
-                    <div class="dash-card mb-5 reveal">
-                        <div class="dash-card-header bg-gradient-maroon text-center fs-5 text-uppercase" style="letter-spacing: 0.1em;">{{ $positionName }}</div>
-                        <div class="p-4" style="background: white;">
-                            @foreach($positionCandidates->sortByDesc('votes_count')->values() as $index => $candidate)
-                                @php
-                                    $maxVotes = isset($maxVotesPerPosition[$positionName]) ? $maxVotesPerPosition[$positionName] : 1;
-                                    $percentage = ($candidate->votes_count / $maxVotes) * 100;
-                                    $isTop3 = $index < 3; 
-                                    $isWinner = $index === 0 && $candidate->votes_count > 0;
-                                @endphp
-                                
-                                <div class="d-flex align-items-center mb-4 {{ $isTop3 ? 'p-3 rounded bg-light border' : '' }}" style="{{ $isTop3 ? 'border-color: #fde68a !important;' : '' }}">
-                                    <div style="width: 32px; height: 32px; background: {{ $isWinner ? 'var(--um-gold)' : ($isTop3 ? '#fcd34d' : 'var(--um-maroon)') }}; color: {{ $isTop3 ? '#0f172a' : 'white' }}; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 14px; flex-shrink: 0;">
-                                        {{ $index + 1 }}
-                                    </div>
-                                    
-                                    <div class="ms-3 flex-grow-1 pe-4">
-                                        <div class="d-flex justify-content-between align-items-end mb-1">
-                                            <span style="font-family: 'DM Sans'; font-size: {{ $isTop3 ? '18px' : '15px' }}; font-weight: 700; color: {{ $isTop3 ? 'var(--text-dark)' : '#475569' }};">
-                                                {{ $candidate->candidate_name }}
-                                                @if($isWinner) <i class="bi bi-star-fill text-warning ms-1" style="font-size: 12px;"></i> @endif
-                                            </span>
-                                        </div>
-                                        <div style="width: 100%; height: {{ $isTop3 ? '10px' : '6px' }}; background: #e2e8f0; border-radius: 4px; overflow: hidden; margin-top: 6px;">
-                                            <div style="height: 100%; background: {{ $isWinner ? 'var(--um-gold)' : 'var(--um-maroon)' }}; border-radius: 4px; width: {{ $percentage }}%;"></div>
-                                        </div>
-                                    </div>
-
-                                    <div class="text-end" style="min-width: 80px;">
-                                        <div style="font-family: 'Bricolage Grotesque'; font-weight: 800; font-size: {{ $isTop3 ? '22px' : '16px' }}; color: var(--text-dark); white-space: nowrap;">
-                                            {{ number_format($candidate->votes_count) }} <span style="font-size: 12px; font-weight: 700; color: #94a3b8; text-transform: uppercase;">{{ $candidate->votes_count === 1 ? 'Vote' : 'Votes' }}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            @endforeach
+                    @php $winner = $positionCandidates->sortByDesc('votes_count')->first(); @endphp
+                    @if($winner && $winner->votes_count > 0)
+                    <div class="winner-chip">
+                        <div class="winner-avatar"><i class="bi bi-person-fill"></i></div>
+                        <div style="min-width:0;">
+                            <div style="font-size:10px;font-weight:800;color:var(--text-faint);text-transform:uppercase;letter-spacing:.07em;margin-bottom:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $positionName }}</div>
+                            <div style="font-family:'Bricolage Grotesque';font-weight:800;font-size:14px;color:var(--text-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">{{ $winner->candidate_name }}</div>
+                            <div style="font-size:11px;color:var(--um-maroon);font-weight:700;margin-top:1px;">{{ number_format($winner->votes_count) }} votes</div>
                         </div>
                     </div>
+                    @endif
                 @endforeach
             </div>
+        </div>
+
+        {{-- Tabbed detail view --}}
+        <div class="pos-tabs-wrap reveal" style="transition-delay:.15s;">
+            {{-- Tab buttons --}}
+            <div class="pos-tabs-header" id="posTabs" role="tablist">
+                @foreach($finalTally as $positionName => $positionCandidates)
+                    @php
+                        $tabId   = 'tab_' . $loop->index;
+                        $panelId = 'panel_' . $loop->index;
+                        $winner  = $positionCandidates->sortByDesc('votes_count')->first();
+                    @endphp
+                    <button class="pos-tab-btn {{ $loop->first ? 'active' : '' }}"
+                            id="{{ $tabId }}"
+                            data-panel="{{ $panelId }}"
+                            onclick="switchTab('{{ $tabId }}','{{ $panelId }}')"
+                            role="tab"
+                            aria-selected="{{ $loop->first ? 'true' : 'false' }}"
+                            aria-controls="{{ $panelId }}">
+                        {{ $positionName }}
+                        @if($winner && $winner->votes_count > 0)
+                            <span style="display:inline-block;width:6px;height:6px;background:var(--um-gold);border-radius:50%;margin-left:5px;vertical-align:middle;"></span>
+                        @endif
+                    </button>
+                @endforeach
+            </div>
+
+            {{-- Tab panels --}}
+            @foreach($finalTally as $positionName => $positionCandidates)
+                @php
+                    $panelId  = 'panel_' . $loop->index;
+                    $maxVotes = isset($maxVotesPerPosition[$positionName]) ? $maxVotesPerPosition[$positionName] : 1;
+                    $maxVotes = $maxVotes > 0 ? $maxVotes : 1;
+                    $sorted   = $positionCandidates->sortByDesc('votes_count')->values();
+                    $totalPos = $sorted->sum('votes_count');
+                @endphp
+                <div class="pos-tab-panel {{ $loop->first ? 'active' : '' }}"
+                     id="{{ $panelId }}"
+                     role="tabpanel"
+                     aria-labelledby="tab_{{ $loop->index }}">
+
+                    {{-- Position summary header --}}
+                    <div class="d-flex align-items-center justify-content-between flex-wrap gap-2 mb-4 pb-3"
+                         style="border-bottom:2px solid var(--border-col);">
+                        <div>
+                            <h4 style="font-family:'Bricolage Grotesque';font-weight:800;font-size:clamp(16px,3vw,22px);color:var(--text-heading);margin:0;text-transform:uppercase;letter-spacing:.04em;">
+                                {{ $positionName }}
+                            </h4>
+                            <div style="font-size:12px;color:var(--text-muted);margin-top:3px;">
+                                {{ $sorted->count() }} candidate(s) &bull; {{ number_format($totalPos) }} total votes cast
+                            </div>
+                        </div>
+                        @php $topWinner = $sorted->first(); @endphp
+                        @if($topWinner && $topWinner->votes_count > 0)
+                            <span style="background:var(--um-maroon-light);color:var(--um-maroon);border:1px solid #fbcfe8;padding:6px 14px;border-radius:20px;font-size:12px;font-weight:800;text-transform:uppercase;letter-spacing:.05em;">
+                                <i class="bi bi-trophy-fill me-1" style="color:var(--um-gold-dark);"></i>
+                                {{ $topWinner->candidate_name }}
+                            </span>
+                        @endif
+                    </div>
+
+                    {{-- Candidate result rows --}}
+                    @foreach($sorted as $index => $candidate)
+                        @php
+                            $pct      = round(($candidate->votes_count / $maxVotes) * 100);
+                            $isWinner = $index === 0 && $candidate->votes_count > 0;
+                            $rankClass = match($index){ 0=>'rank-1', 1=>'rank-2', 2=>'rank-3', default=>'rank-n' };
+                            $sharePct  = $totalPos > 0 ? round(($candidate->votes_count / $totalPos) * 100, 1) : 0;
+                        @endphp
+                        <div class="result-row {{ $isWinner ? 'winner' : '' }}" data-width="{{ $pct }}">
+                            <div class="result-row-fill" style="width:0%;"></div>
+
+                            {{-- Rank badge --}}
+                            <div class="rank-badge {{ $rankClass }}">
+                                @if($isWinner) <i class="bi bi-trophy-fill" style="font-size:12px;"></i>
+                                @else {{ $index + 1 }} @endif
+                            </div>
+
+                            {{-- Name + partylist --}}
+                            <div class="flex-grow-1" style="min-width:0;">
+                                <div style="font-family:'Bricolage Grotesque';font-weight:800;font-size:clamp(14px,2.5vw,17px);color:var(--text-heading);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">
+                                    {{ $candidate->candidate_name }}
+                                    @if($isWinner) <i class="bi bi-patch-check-fill ms-1" style="color:var(--um-maroon);font-size:13px;"></i> @endif
+                                </div>
+                                <div class="d-flex flex-wrap gap-1 mt-1">
+                                    @if($candidate->partylist)
+                                        <span style="font-size:10px;font-weight:700;background:var(--um-maroon-light);color:var(--um-maroon);border:1px solid #fbcfe8;padding:2px 8px;border-radius:20px;">
+                                            {{ $candidate->partylist }}
+                                        </span>
+                                    @endif
+                                    @if($candidate->college)
+                                        <span style="font-size:10px;font-weight:700;background:var(--bg-surface-alt);color:var(--text-muted);border:1px solid var(--border-col);padding:2px 8px;border-radius:20px;">
+                                            {{ $candidate->college }}
+                                        </span>
+                                    @endif
+                                </div>
+                            </div>
+
+                            {{-- Progress bar --}}
+                            <div style="flex:1;min-width:60px;max-width:180px;">
+                                <div style="width:100%;height:7px;background:var(--border-col);border-radius:4px;overflow:hidden;">
+                                    <div class="bar-fill" data-pct="{{ $pct }}"
+                                         style="height:100%;width:0%;background:{{ $isWinner ? 'var(--um-gold)' : 'var(--um-maroon)' }};border-radius:4px;transition:width 1.2s cubic-bezier(.4,0,.2,1);"></div>
+                                </div>
+                                <div style="font-size:10px;color:var(--text-muted);font-weight:700;margin-top:3px;text-align:right;">{{ $sharePct }}% share</div>
+                            </div>
+
+                            {{-- Vote count --}}
+                            <div class="text-end" style="min-width:64px;flex-shrink:0;">
+                                <div style="font-family:'Bricolage Grotesque';font-weight:800;font-size:clamp(18px,3vw,24px);color:{{ $isWinner ? 'var(--um-gold-dark)' : 'var(--text-heading)' }};line-height:1;">
+                                    {{ number_format($candidate->votes_count) }}
+                                </div>
+                                <div style="font-size:10px;color:var(--text-faint);text-transform:uppercase;font-weight:700;letter-spacing:.05em;">
+                                    {{ $candidate->votes_count === 1 ? 'vote' : 'votes' }}
+                                </div>
+                            </div>
+                        </div>
+                    @endforeach
+                </div>
+            @endforeach
+        </div>
+
+        <script>
+        // ── Tab switcher ──────────────────────────────────────────────
+        function switchTab(tabId, panelId) {
+            // Deactivate all
+            document.querySelectorAll('.pos-tab-btn').forEach(b => {
+                b.classList.remove('active');
+                b.setAttribute('aria-selected','false');
+            });
+            document.querySelectorAll('.pos-tab-panel').forEach(p => p.classList.remove('active'));
+
+            // Activate chosen
+            const btn   = document.getElementById(tabId);
+            const panel = document.getElementById(panelId);
+            btn.classList.add('active');
+            btn.setAttribute('aria-selected','true');
+            panel.classList.add('active');
+
+            // Scroll active tab into view on mobile
+            btn.scrollIntoView({ behavior:'smooth', block:'nearest', inline:'center' });
+
+            // Animate bars in new panel
+            setTimeout(() => animateBars(panel), 60);
+        }
+
+        // ── Animate progress bars ─────────────────────────────────────
+        function animateBars(container) {
+            container.querySelectorAll('.bar-fill').forEach(bar => {
+                bar.style.width = bar.dataset.pct + '%';
+            });
+            container.querySelectorAll('.result-row-fill').forEach(fill => {
+                const row = fill.closest('.result-row');
+                fill.style.width = (row.dataset.width || 0) + '%';
+            });
+        }
+
+        // Animate first panel on load
+        document.addEventListener('DOMContentLoaded', function () {
+            const firstPanel = document.querySelector('.pos-tab-panel.active');
+            if (firstPanel) setTimeout(() => animateBars(firstPanel), 400);
+        });
+
+        // Keyboard navigation for tabs
+        document.getElementById('posTabs').addEventListener('keydown', function(e) {
+            const tabs   = [...this.querySelectorAll('.pos-tab-btn')];
+            const active = tabs.findIndex(t => t.classList.contains('active'));
+            if (e.key === 'ArrowRight' && active < tabs.length - 1) tabs[active+1].click();
+            if (e.key === 'ArrowLeft'  && active > 0)               tabs[active-1].click();
+        });
+        </script>
 
         @elseif($electionStatus === 'published' && !$isWithinWeek)
             <div class="dash-card mx-auto reveal text-center p-5" style="max-width: 600px; margin-top: 60px; border-top: 6px solid #94a3b8;">

@@ -142,7 +142,7 @@
             border-right: 1px solid var(--border-col);
             display: flex; flex-direction: column;
             position: fixed; height: 100vh;
-            z-index: 300; overflow: hidden;
+            z-index: 300; overflow: hidden; overflow-y: auto;
             box-shadow: 4px 0 24px rgba(0,0,0,0.04);
             transition: transform .3s ease, background .3s, border-color .3s, width .3s;
         }
@@ -153,7 +153,7 @@
             text-decoration: none; flex-shrink: 0;
             transition: border-color .3s;
         }
-        .sidebar-menu { padding: 14px 11px; flex: 1; overflow-y: auto; }
+        .sidebar-menu { padding: 14px 11px; flex: 1; overflow-y: auto; min-height: 0; }
         .menu-label {
             font-size: var(--fs-xs); font-weight: 800; color: var(--text-faint);
             text-transform: uppercase; letter-spacing: .12em; margin: 8px 0 10px 13px;
@@ -174,7 +174,7 @@
         .role-auditor  { background:#fffbeb; color:#d97706; border:1px solid #fde68a; }
         .role-voter    { background:#f0fdf4; color:#16a34a; border:1px solid #bbf7d0; }
 
-        .sidebar-footer { padding:13px 11px; border-top:1px solid var(--border-subtle); background:var(--bg-surface-alt); flex-shrink:0; transition:background .3s, border-color .3s; }
+        .sidebar-footer { padding:13px 11px; border-top:1px solid var(--border-subtle); background:var(--bg-surface-alt); flex-shrink:0; transition:background .3s, border-color .3s; position:sticky; bottom:0; z-index:10; }
         .user-card {
             display:flex; align-items:center; gap:10px; padding:10px 12px;
             border-radius:11px; background:var(--bg-surface); border:1px solid var(--border-col);
