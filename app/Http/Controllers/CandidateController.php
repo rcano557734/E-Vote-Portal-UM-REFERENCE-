@@ -150,8 +150,9 @@ class CandidateController extends Controller
         // ------------------------------------------------------------------
         // VOTER
         // ------------------------------------------------------------------
+        // Scope to the CURRENT active election only — never bleed across cycles
         $hasVoted = Vote::where('user_id', $user->id)
-            ->whereIn('candidate_id', $activeCandidateIds)
+            ->where('election_id', $election->id)
             ->exists();
 
         $votedCandidates  = [];
@@ -170,7 +171,7 @@ class CandidateController extends Controller
 
         if ($hasVoted) {
             $voteIds         = Vote::where('user_id', $user->id)
-                ->whereIn('candidate_id', $activeCandidateIds)
+                ->where('election_id', $election->id)
                 ->pluck('candidate_id');
             $votedCandidates = Candidate::whereIn('id', $voteIds)
                 ->with('position')
