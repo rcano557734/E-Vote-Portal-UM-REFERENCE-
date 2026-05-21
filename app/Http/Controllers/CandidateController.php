@@ -19,16 +19,17 @@ class CandidateController extends Controller
     // =========================================================================
 
     /**
-     * Resolve the current "working" election — active first, then latest.
-     * Auto-creates a placeholder if none exist.
+     * Resolve the current "working" election — active first, then pending.
+     * Auto-creates a new election cycle if the last one was archived.
      */
     private function resolveElection(): Election
     {
-        // Prefer the active election first, then the most recent one
-        $election = Election::where('status', 'active')->first()
-            ?? Election::latest()->first();
+        // 1. Look for an election that is currently active or pending
+        $election = Election::whereIn('status', ['active', 'pending'])
+            ->latest()
+            ->first();
 
-        // Only auto-create if truly none exist at all
+        // 2. If no active/pending election exists (last one was archived), generate a fresh cycle
         if (! $election) {
             $election = Election::create([
                 'title'      => 'UM General Election ' . date('Y'),
@@ -36,14 +37,26 @@ class CandidateController extends Controller
                 'end_date'   => now()->addDays(7)->toDateString(),
                 'status'     => 'pending',
             ]);
+
+            // IMPORTANT: Generate fresh positions linked to this NEW election ID.
+            // This ensures the Database Unique Constraint won't crash when a user votes in the new cycle.
+            $standardPositions = [
+                'President', 'Internal Vice President', 'External Vice President', 
+                'Secretary', 'Asst. Secretary', 'Treasurer', 'Asst. Treasurer', 
+                'Auditor', 'P.I.O', 'Asst. P.I.O', 'Business Manager'
+            ];
+
+            foreach ($standardPositions as $pos) {
+                Position::create([
+                    'election_id'   => $election->id,
+                    'position_name' => $pos
+                ]);
+            }
         }
 
         return $election;
     }
 
-    /**
-     * Abort with a 403 JSON / redirect if role check fails.
-     */
     private function requireRole(int ...$roles): void
     {
         if (! in_array(auth()->user()->role_id, $roles, true)) {
@@ -51,9 +64,6 @@ class CandidateController extends Controller
         }
     }
 
-    /**
-     * Write an audit log entry.
-     */
     private function audit(string $description): void
     {
         AuditLog::create([
@@ -150,7 +160,7 @@ class CandidateController extends Controller
         // ------------------------------------------------------------------
         // VOTER
         // ------------------------------------------------------------------
-        // Scope to the CURRENT active election only — never bleed across cycles
+        // Scope exclusively to the CURRENT fresh election ID
         $hasVoted = Vote::where('user_id', $user->id)
             ->where('election_id', $election->id)
             ->exists();
@@ -159,10 +169,11 @@ class CandidateController extends Controller
         $groupedCandidates = [];
         $tally            = collect();
 
-        // Past voted (archived) candidates
+        // Past voted (archived) candidates are separated cleanly by checking old election IDs
         $pastVoteIds  = Vote::where('user_id', $user->id)
-            ->whereNotIn('candidate_id', $activeCandidateIds)
+            ->where('election_id', '!=', $election->id)
             ->pluck('candidate_id');
+            
         $pastHistory  = Candidate::whereIn('id', $pastVoteIds)
             ->where('is_archived', true)
             ->with('position')
@@ -211,16 +222,11 @@ class CandidateController extends Controller
                 ->with('error', 'Candidates can only be registered while the election is in PENDING status.');
         }
 
-        // Try positions linked to this election first, then fall back to all positions
-        // (handles mismatched election IDs after re-seeding)
         $positions = Position::where('election_id', $election->id)->get();
-        if ($positions->isEmpty()) {
-            $positions = Position::all();
-        }
 
         if ($positions->isEmpty()) {
             return redirect()->route('candidates.index')
-                ->with('error', 'No positions found. Please run: php artisan db:seed --class=PositionSeeder');
+                ->with('error', 'No positions found for this election cycle.');
         }
 
         return view('candidates.create', compact('positions'));
@@ -237,7 +243,6 @@ class CandidateController extends Controller
                 ->with('error', 'Cannot register candidates while election is ' . strtoupper($election->status) . '.');
         }
 
-        // Validate partylist-level fields
         $request->validate([
             'partylist_name' => 'required|string|max:100',
             'college'        => 'required|string|max:50',
@@ -254,15 +259,13 @@ class CandidateController extends Controller
             foreach ($request->candidates as $positionId => $data) {
                 $name = trim($data['name'] ?? '');
                 if ($name === '') {
-                    continue; // Allow blank positions
+                    continue; 
                 }
 
-                // Validate candidate-level fields
                 if (strlen($name) > 255) {
                     throw new \InvalidArgumentException("Candidate name is too long for position #{$positionId}.");
                 }
 
-                // Check that position exists
                 $position = Position::find($positionId);
                 if (! $position) {
                     throw new \Exception("Invalid position ID: {$positionId}.");
@@ -300,9 +303,8 @@ class CandidateController extends Controller
     public function edit($id)
     {
         $this->requireRole(User::ADMIN);
-
         $candidate = Candidate::findOrFail($id);
-        $positions = Position::all();
+        $positions = Position::where('election_id', $candidate->position->election_id)->get();
 
         return view('candidates.edit', compact('candidate', 'positions'));
     }
@@ -331,27 +333,21 @@ class CandidateController extends Controller
             ->with('success', 'Candidate profile updated successfully.');
     }
 
-    // =========================================================================
-    // DESTROY (soft-archive)
-    // =========================================================================
-
     public function destroy($id)
     {
         $this->requireRole(User::ADMIN);
 
         $candidate = Candidate::findOrFail($id);
-
         $election = $this->resolveElection();
+        
         if ($election->status === 'active') {
             return back()->with('error', 'Cannot remove a candidate while the election is active.');
         }
 
         $candidate->update(['is_archived' => true]);
-
         $this->audit("Archived candidate: '{$candidate->candidate_name}' (ID #{$id}).");
 
-        return redirect()->route('candidates.index')
-            ->with('success', 'Candidate archived successfully.');
+        return redirect()->route('candidates.index')->with('success', 'Candidate archived successfully.');
     }
 
     // =========================================================================
@@ -362,7 +358,6 @@ class CandidateController extends Controller
     {
         $user = auth()->user();
 
-        // Only voters can cast ballots
         if ($user->role_id !== User::VOTER) {
             return back()->with('error', 'Only registered students (voters) can cast a ballot.');
         }
@@ -373,7 +368,7 @@ class CandidateController extends Controller
             return back()->with('error', 'The election is not currently active. Please try again later.');
         }
 
-        // Double-vote prevention
+        // Fresh Double-vote prevention based on the actual new election ID
         $alreadyVoted = Vote::where('user_id', $user->id)
             ->where('election_id', $election->id)
             ->exists();
@@ -386,9 +381,8 @@ class CandidateController extends Controller
             return back()->with('error', 'No votes were submitted. Please select a candidate for each position.');
         }
 
-        $votes             = $request->votes;
-        $activeCandidateIds = Candidate::where('is_archived', false)->pluck('id');
-
+        $votes = $request->votes;
+        
         $expectedPositions = Candidate::where('is_archived', false)
             ->distinct('position_id')
             ->pluck('position_id');
@@ -400,7 +394,6 @@ class CandidateController extends Controller
         try {
             DB::transaction(function () use ($votes, $user, $election) {
                 foreach ($votes as $positionId => $candidateId) {
-                    // Tamper protection — verify the candidate belongs to that position
                     $candidate = Candidate::where('id', $candidateId)
                         ->where('position_id', $positionId)
                         ->where('is_archived', false)
@@ -445,17 +438,9 @@ class CandidateController extends Controller
             if ($activeCandidatesCount === 0) {
                 return back()->with('error', 'Cannot start election: No active candidates found. Please register candidates first.');
             }
-
-            $activeCandidateIds  = Candidate::where('is_archived', false)->pluck('id');
-            $hasUnarchivedVotes  = Vote::whereIn('candidate_id', $activeCandidateIds)->exists();
-
-            if ($hasUnarchivedVotes || in_array($election->status, ['closed', 'certified', 'published'], true)) {
-                return back()->with('error', 'Cannot start a new election: Archive the previous election results first.');
-            }
         }
 
         $election->update(['status' => $request->status]);
-
         $this->audit("Changed election status to: " . strtoupper($request->status));
 
         return back()->with('success', 'Election is now ' . strtoupper($request->status) . '.');
@@ -554,10 +539,10 @@ class CandidateController extends Controller
             'email'    => 'required|email|unique:users,email',
             'password' => 'required|min:8|confirmed',
         ], [
-            'name.required'     => 'Auditor full name is required.',
-            'email.required'    => 'A valid email address is required.',
-            'email.unique'      => 'This email is already registered in the system.',
-            'password.min'      => 'Password must be at least 8 characters.',
+            'name.required'      => 'Auditor full name is required.',
+            'email.required'     => 'A valid email address is required.',
+            'email.unique'       => 'This email is already registered in the system.',
+            'password.min'       => 'Password must be at least 8 characters.',
             'password.confirmed' => 'Password confirmation does not match.',
         ]);
 
@@ -640,7 +625,9 @@ class CandidateController extends Controller
         try {
             DB::transaction(function () use ($election) {
                 Candidate::where('is_archived', false)->update(['is_archived' => true]);
-                $election->update(['status' => 'pending']);
+                
+                // THE CRITICAL FIX: Mark old election as permanently archived!
+                $election->update(['status' => 'archived']);
             });
 
             $this->audit('Archived election data. Dashboard reset for next election cycle.');
@@ -697,15 +684,8 @@ class CandidateController extends Controller
             'email'                => 'required|email|unique:users,email,' . $user->id,
             'current_password'     => 'nullable|string',
             'new_password'         => 'nullable|string|min:8|confirmed',
-        ], [
-            'name.required'          => 'Your name cannot be empty.',
-            'email.required'         => 'A valid email is required.',
-            'email.unique'           => 'This email is already in use by another account.',
-            'new_password.min'       => 'New password must be at least 8 characters.',
-            'new_password.confirmed' => 'Password confirmation does not match.',
         ]);
 
-        // If changing password, verify current password first
         if ($request->filled('new_password')) {
             if (! $request->filled('current_password') || ! Hash::check($request->current_password, $user->password)) {
                 return back()
@@ -719,7 +699,7 @@ class CandidateController extends Controller
         $user->email = $validated['email'];
         $user->save();
 
-        $this->audit("Updated own profile (name/email" . ($request->filled('new_password') ? '/password' : '') . ").");
+        $this->audit("Updated own profile.");
 
         return back()->with('success', 'Profile updated successfully.');
     }
